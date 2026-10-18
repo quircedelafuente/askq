@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { P, APP, readJSON, writePrivate } from './config.js';
+import { P, APP, readJSON, writePrivate, loadConfig } from './config.js';
 
 export const NAME = /^[a-z][a-z0-9-]{1,39}$/;
 
@@ -79,10 +79,11 @@ export async function sync({ quiet = false } = {}) {
     } catch (e) { report.push({ name, ok: false, error: e.message }); }
   }
   writePrivate(P.effectTools, JSON.stringify({ readOnly, effect, synced: new Date().toISOString() }, null, 2));
+  const exempt = loadConfig().guard?.exempt || [];
   if (!quiet) for (const r of report) {
     if (!r.ok) { console.log(`✗ ${r.name}: ${r.error}`); continue; }
     console.log(`✓ ${r.name}`);
-    for (const t of r.tools) console.log(`    ${t.readOnly ? 'read-only   ' : 'needs "yes" '} ${t.name}`);
+    for (const t of r.tools) console.log(`    ${t.readOnly ? 'read-only   ' : exempt.includes(`mcp__${r.name}__${t.name}`) ? 'only you    ' : 'needs "yes" '} ${t.name}`);
   }
   return report;
 }

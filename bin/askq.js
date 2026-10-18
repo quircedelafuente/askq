@@ -13,10 +13,28 @@ const bold = s => `\x1b[1m${s}\x1b[0m`, dim = s => `\x1b[2m${s}\x1b[0m`, green =
 const ok = s => console.log(`${green('✓')} ${s}`), bad = s => console.log(`${red('✗')} ${s}`), info = s => console.log(`  ${s}`);
 
 // ---------- prompts ----------
-let rl = null;
-const io = () => (rl ||= readline.createInterface({ input: process.stdin, output: process.stdout }));
+// One readline for the whole run; answers are queued so piped input (tests, scripts) works as well as a terminal.
+let rl = null, muted = false;
+const lines = [], waiting = [];
+function io() {
+  if (rl) return rl;
+  rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: !!process.stdin.isTTY });
+  const write = rl._writeToOutput?.bind(rl);
+  if (write) rl._writeToOutput = s => { if (!muted) write(s); };
+  rl.on('line', l => { const w = waiting.shift(); w ? w(l) : lines.push(l); });
+  rl.on('close', () => { while (waiting.length) waiting.shift()(''); });
+  return rl;
+}
 const close = () => { rl?.close(); rl = null; };
-const question = q => new Promise(r => io().question(q, r));
+function question(q, { hidden = false } = {}) {
+  io();
+  process.stdout.write(q);
+  muted = hidden && !!process.stdin.isTTY;
+  return new Promise(r => {
+    const done = a => { if (muted) process.stdout.write('\n'); muted = false; r(a); };
+    lines.length ? done(lines.shift()) : waiting.push(done);
+  });
+}
 async function askText(q, def = '') { const a = (await question(`${q}${def ? dim(` [${def}]`) : ''}: `)).trim(); return a || def; }
 async function askYes(q, def = true) { const a = (await question(`${q} ${dim(def ? '[Y/n]' : '[y/N]')}: `)).trim().toLowerCase(); return a ? /^(y|yes|s|si|sí)$/.test(a) : def; }
 async function choose(q, options, def = 0) {
@@ -25,29 +43,26 @@ async function choose(q, options, def = 0) {
   const a = parseInt(await askText('Choose', String(def + 1)), 10);
   return options[(a >= 1 && a <= options.length ? a : def + 1) - 1].value;
 }
-function askSecret(q) {
-  return new Promise(resolve => {
-    close();
-    const r = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: true });
-    const write = r._writeToOutput.bind(r);
-    r._writeToOutput = s => write(s.startsWith(q) ? s : '');
-    r.question(q, a => { r.close(); process.stdout.write('\n'); resolve(a.trim()); });
-  });
-}
+const askSecret = async q => (await question(q, { hidden: true })).trim();
 
 // ---------- helpers ----------
 const which = c => { try { return execFileSync('which', [c], { encoding: 'utf8' }).trim(); } catch { return null; } };
-const tailscaleBin = () => which('tailscale') || (isMac && fs.existsSync('/Applications/Tailscale.app/Contents/MacOS/Tailscale') ? '/Applications/Tailscale.app/Contents/MacOS/Tailscale' : null);
+const tailscaleBin = () => process.env.ASKQ_TAILSCALE !== undefined ? (process.env.ASKQ_TAILSCALE || null) : which('tailscale') || (isMac && fs.existsSync('/Applications/Tailscale.app/Contents/MacOS/Tailscale') ? '/Applications/Tailscale.app/Contents/MacOS/Tailscale' : null);
 async function health() { try { const r = await fetch(`http://127.0.0.1:${loadConfig().port}/health`, { signal: AbortSignal.timeout(2000) }); return r.ok; } catch { return false; } }
 
 // Workspace = where Claude Code runs. CLAUDE.md is yours to edit; .claude/settings.json is rewritten by setup.
 function writeWorkspace(cfg) {
   const ws = P.workspace;
   fs.mkdirSync(path.join(ws, '.claude', 'skills'), { recursive: true, mode: 0o700 });
-  const claudeMd = path.join(ws, 'CLAUDE.md');
-  if (!fs.existsSync(claudeMd)) {
-    fs.writeFileSync(claudeMd, fs.readFileSync(path.join(APP, 'workspace', 'CLAUDE.md.tpl'), 'utf8')
-      .replaceAll('__NAME__', cfg.name || 'the user').replaceAll('__TIMEZONE__', cfg.timezone).replaceAll('__LANGUAGE__', cfg.language));
+  // CLAUDE.md is yours to edit: it is (re)written only while it is still exactly what Ask Q generated.
+  const claudeMd = path.join(ws, 'CLAUDE.md'), generated = path.join(P.state, 'claude-md.generated');
+  const render = fs.readFileSync(path.join(APP, 'workspace', 'CLAUDE.md.tpl'), 'utf8')
+    .replaceAll('__NAME__', cfg.name || 'the user').replaceAll('__TIMEZONE__', cfg.timezone).replaceAll('__LANGUAGE__', cfg.language);
+  const current = fs.existsSync(claudeMd) ? fs.readFileSync(claudeMd, 'utf8') : null;
+  if (current === null || current === (fs.existsSync(generated) ? fs.readFileSync(generated, 'utf8') : null)) {
+    fs.writeFileSync(claudeMd, render, { mode: 0o600 });
+    fs.mkdirSync(P.state, { recursive: true, mode: 0o700 });
+    fs.writeFileSync(generated, render, { mode: 0o600 });
   }
   fs.cpSync(path.join(APP, 'workspace', '.claude', 'skills'), path.join(ws, '.claude', 'skills'), { recursive: true });
   const abs = p => `/${p}`;   // permission rules use //absolute/path
@@ -165,10 +180,11 @@ async function setup() {
       { label: 'My Claude subscription (Pro/Max)', hint: 'run `claude setup-token` in another terminal and paste the token', value: 'sub' },
       { label: 'An API key', hint: 'from console.anthropic.com, pay per use', value: 'api' },
     ]);
-    if (how === 'sub') setEnv('CLAUDE_CODE_OAUTH_TOKEN', await askSecret('Token from `claude setup-token` (hidden): '));
-    else setEnv('ANTHROPIC_API_KEY', await askSecret('Anthropic API key (hidden): '));
+    const key = how === 'sub' ? 'CLAUDE_CODE_OAUTH_TOKEN' : 'ANTHROPIC_API_KEY';
+    setEnv(key, await askSecret(how === 'sub' ? 'Token from `claude setup-token` (hidden): ' : 'Anthropic API key (hidden): '));
     c = claudeWorks();
-    c.ok ? ok('Claude Code works.') : bad(`Claude still does not answer: ${c.why}\n  Fix it and run askq setup again (or askq doctor).`);
+    if (c.ok) ok('Claude Code works.');
+    else { setEnv(key, ''); bad(`Claude still does not answer: ${c.why}\n  The key was not saved. Fix it and run askq setup again (or askq doctor).`); }
   }
 
   // Channel
@@ -187,7 +203,7 @@ async function setup() {
     else cfg.whatsapp.owners = (await askText('Your phone number(s) it should answer, with country code (comma-separated)', cfg.whatsapp.owners.join(','))).split(',').map(s => s.replace(/\D/g, '')).filter(Boolean);
   }
   saveConfig(cfg);
-  if (cfg.channel !== 'none' && await askYes(`Link ${cfg.channel} now?`)) { close(); await linkChannel(cfg.channel).catch(e => bad(e.message)); }
+  if (cfg.channel !== 'none' && await askYes(`Link ${cfg.channel} now?`)) await linkChannel(cfg.channel).catch(e => bad(e.message));
 
   // Voice notes
   if (cfg.channel !== 'none') {
@@ -205,7 +221,7 @@ async function setup() {
   // Service
   console.log(`\n${bold('5. Background service')}`);
   const svc = await import('../src/service.js');
-  try {
+  if (await askYes('Run Ask Q in the background and start it at boot?')) try {
     const r = svc.install();
     ok(`Ask Q runs in the background (${r.kind}) and starts at boot.`);
     if (r.kind === 'systemd' && !r.linger) info(`To keep it running when you are logged out: sudo loginctl enable-linger ${os.userInfo().username}`);

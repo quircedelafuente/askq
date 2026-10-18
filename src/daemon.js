@@ -106,7 +106,11 @@ const server = http.createServer(async (req, res) => {
       const j = req.method === 'POST' ? JSON.parse(await body(req, 200_000) || '{}') : {};
       const route = url.pathname.slice('/internal/'.length);
       if (route === 'notify') { await notify(String(j.text || '')).catch(e => log('NOTIFY-FAIL', e.message)); return send(res, 200, { ok: true }, 'application/json'); }
-      if (route === 'send') { await notify(j.text || '', j.files || []); log('SENT', (j.files || []).length, 'files'); return send(res, 200, { sent: true, channel: cfg.channel }, 'application/json'); }
+      if (route === 'send') {
+        try { await notify(j.text || '', j.files || []); } catch (e) { log('SEND-FAIL', e.message); return send(res, 503, { error: e.message }, 'application/json'); }
+        log('SENT', (j.files || []).length, 'files');
+        return send(res, 200, { sent: true, channel: cfg.channel }, 'application/json');
+      }
       if (route === 'reminders' && req.method === 'GET') return send(res, 200, readReminders().map(r => ({ id: r.id, when: r.when, text: r.text })), 'application/json');
       if (route === 'reminders') {
         const at = zonedToEpoch(j.when, cfg.timezone);
