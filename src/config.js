@@ -47,7 +47,7 @@ export const DEFAULTS = {
   voiceNotes: false,        // transcribe voice notes locally (faster-whisper)
   sessionMinutes: 15,       // Siri: after this long, a new conversation starts
   guard: {
-    exempt: ['mcp__askq-phone__send_to_phone', 'mcp__askq-phone__remind_me', 'mcp__askq-phone__list_reminders', 'mcp__askq-phone__cancel_reminder'],
+    exempt: ['mcp__askq-phone__send_to_phone', 'mcp__askq-phone__tell_user_now', 'mcp__askq-phone__remind_me', 'mcp__askq-phone__list_reminders', 'mcp__askq-phone__cancel_reminder'],
     require: [],            // extra tool names (or prefixes ending in *) that always need your "yes"
   },
 };

@@ -34,6 +34,9 @@ That's it. Say **"Hey Siri, Ask Q"**, wait for the beep, and speak.
 
 ## Tips
 
+- **Long tasks answer early.** For things that take a while ("get me the ticket and send it to my WhatsApp"), Ask Q
+  answers within seconds with what it's going to do ("Okay, I'll get it and send it to your WhatsApp"), Siri closes,
+  and the result arrives in your WhatsApp/Telegram when it's done.
 - **Slow tasks.** Siri gives up after ~30 seconds. If something takes longer, Ask Q answers "On it… can you say okay in
   a few seconds?" and keeps listening — say "okay" and you'll get the result. Long tasks
   also arrive in your WhatsApp/Telegram if you ask ("send me the ticket").

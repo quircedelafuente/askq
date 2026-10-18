@@ -42,7 +42,7 @@ export async function createChat(cfg) {
     log('IN', name, JSON.stringify(text.slice(0, 200)));
     if (isNewConversation(text)) { resetSession(name); return reply('Okay, starting over.'); }
     const slow = setTimeout(() => reply('On it…'), SLOW_S * 1000);
-    const answer = await ask(text, { channel: name });
+    const answer = await ask(text, { channel: name, onEarly: t => { clearTimeout(slow); reply(t); } });
     clearTimeout(slow);
     await reply(answer);
   }

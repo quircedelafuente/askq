@@ -26,6 +26,10 @@ const STYLE = {
   telegram: lang => `CHAT MODE (Telegram): reply in the language the user wrote in (default: ${lang}), short and direct like a chat. Plain text with simple lists, no tables, no # headings.`,
   cli: lang => `TERMINAL MODE: reply in the language the user wrote in (default: ${lang}), concisely.`,
 };
+const EARLY = {
+  siri: 'If a task will take a while (booking, buying, getting a ticket, searching and sending something, several steps), as soon as you know what you will do and BEFORE the long steps, call askq-phone → tell_user_now with one short sentence saying what you will do and where the result will arrive ("Okay, I\'ll get the 9 o\'clock ticket and send it to your WhatsApp"). Siri reads it right away and you keep working; your final answer is then sent to their phone as a message. If you need their "yes" first, ask first without it; after the yes, call it and act. Never use it for questions or quick answers.',
+  chat: 'If a task will take a while (booking, buying, several steps), call askq-phone → tell_user_now first with one short sentence saying what you will do, then do it; your final answer arrives as the next message. Never use it for questions or quick answers.',
+};
 const RULES = `Before any action with real effects (booking, cancelling, paying, buying, sending something to another person, deleting), say exactly what you will do (who, what, when, how much) and end with a yes/no question. The user's answer arrives in the next message. Repeating the original request is NOT a yes: ask again. To send a file or message to the user's own phone, use the askq-phone tool.`;
 
 function readSessions() { return readJSON(P.sessions, {}); }
@@ -37,12 +41,21 @@ function saveSession(channel, data) {
 export function resetSession(channel) { saveSession(channel, { id: null, asked: false, lastReply: '' }); }
 
 let queue = Promise.resolve();
+let early = null;     // callback that delivers an early "I'm on it" message for the running turn (tell_user_now)
 
 // text: what the user said · channel: siri|whatsapp|telegram|cli · expires: minutes after which a new conversation starts
-export function ask(text, { channel = 'cli', expires = null } = {}) {
-  const job = queue.then(() => run(text, channel, expires));
+// onEarly(text): called if the assistant sends an early message with tell_user_now while it keeps working.
+export function ask(text, { channel = 'cli', expires = null, onEarly = null } = {}) {
+  const job = queue.then(() => { early = onEarly; return run(text, channel, expires); }).finally(() => { early = null; });
   queue = job.catch(() => {});
   return job;
+}
+// Delivers an early message to whoever is waiting for the running turn. Returns false if nobody is.
+export function deliverEarly(text) {
+  if (!early || !text) return false;
+  const f = early; early = null;
+  f(text);
+  return true;
 }
 
 function run(text, channel, expires) {
@@ -54,7 +67,7 @@ function run(text, channel, expires) {
   const yes = !!resume && sess.asked === true && isYes(text);
 
   const args = ['-p', text, '--output-format', 'json',
-    '--append-system-prompt', `${STYLE[channel](cfg.language)}\n${RULES}`,
+    '--append-system-prompt', `${STYLE[channel](cfg.language)}\n${RULES}\n${channel === 'siri' ? EARLY.siri : channel === 'cli' ? '' : EARLY.chat}`,
     '--setting-sources', 'project,local',
     '--strict-mcp-config', '--mcp-config', P.mcp,
     '--allowedTools', ...allowedTools()];

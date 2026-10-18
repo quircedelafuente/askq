@@ -36,6 +36,19 @@ server.registerTool('send_to_phone', {
   } catch (e) { return fail(e); }
 });
 
+server.registerTool('tell_user_now', {
+  description: "For tasks that take a while: tell the user right now, in one short sentence, what you are going to do and where the result will arrive (\"Okay, I'll book it and send the ticket to your WhatsApp\"). They hear/see it immediately while you keep working; your final answer is delivered when you finish. Use at most once per request, never for questions.",
+  inputSchema: { text: z.string().min(1).describe('One short sentence in the user\'s language') },
+  annotations: { readOnlyHint: true },
+}, async ({ text: t }) => {
+  try {
+    const r = await call('early', { text: t });
+    return text(r.delivered
+      ? 'Delivered: the user already got your message. Keep working; your final answer will be sent to them when you finish, so write it as a short message with the key details.'
+      : 'Not needed now (the user already got an answer). Just finish the task normally.');
+  } catch (e) { return fail(e); }
+});
+
 server.registerTool('remind_me', {
   description: "Schedule a reminder that will be sent to the user's phone. `when` is local time 'YYYY-MM-DD HH:MM' in the user's timezone.",
   inputSchema: { when: z.string().regex(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/), text: z.string().min(1) },

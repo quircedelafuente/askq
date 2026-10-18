@@ -6,7 +6,7 @@
 import http from 'node:http';
 import crypto from 'node:crypto';
 import { P, loadConfig, getToken, internalToken, sameSecret, readJSON, writePrivate, logger, ensureDirs } from './config.js';
-import { ask, resetSession } from './agent.js';
+import { ask, resetSession, deliverEarly } from './agent.js';
 import { isNewConversation } from './confirm.js';
 import { createChat } from './chat/core.js';
 
@@ -79,11 +79,21 @@ async function siri(text) {
   // A badly built shortcut sends the same phrase again and again: never pass it on (it could repeat an action).
   if (last.key === key && Date.now() - last.t < 120_000) { last.t = Date.now(); log('REPEATED', JSON.stringify(text)); return 'I got the same phrase again. Your shortcut is probably not saving your new answer; check the variable in its loop. Say stop to exit.'; }
   last = { key, t: Date.now() };
-  const job = ask(text, { channel: 'siri', expires: cfg.sessionMinutes });
-  const r = await wait(job);
-  if (r === null) { pending = job; return onIt(text); }
+  // The assistant may answer early with tell_user_now ("Okay, I'll get the ticket and send it to your WhatsApp"):
+  // Siri reads that, and the final answer goes to the chat channel when the work is done.
+  let answered = false, earlyText;
+  const early = new Promise(r => { earlyText = r; });
+  const job = ask(text, { channel: 'siri', expires: cfg.sessionMinutes, onEarly: t => { if (!answered) earlyText(t); return !answered; } });
+  const first = await wait(Promise.race([job.then(r => ({ done: r })), early.then(t => ({ early: t }))]));
+  answered = true;
+  if (first?.early) {
+    pending = null;
+    job.then(final => notify(final)).catch(e => { log('FINAL-FAIL', e.message); pending = job; });
+    return first.early;
+  }
+  if (!first) { pending = job; return onIt(text); }
   pending = null;
-  return r;
+  return first.done;
 }
 
 // ---------- HTTP ----------
@@ -105,6 +115,7 @@ const server = http.createServer(async (req, res) => {
       if (!sameSecret(bearer(req), INTERNAL) || req.headers['x-forwarded-for']) return send(res, 401, { error: 'unauthorized' }, 'application/json');
       const j = req.method === 'POST' ? JSON.parse(await body(req, 200_000) || '{}') : {};
       const route = url.pathname.slice('/internal/'.length);
+      if (route === 'early') return send(res, 200, { delivered: deliverEarly(String(j.text || '').trim()) }, 'application/json');
       if (route === 'notify') { await notify(String(j.text || '')).catch(e => log('NOTIFY-FAIL', e.message)); return send(res, 200, { ok: true }, 'application/json'); }
       if (route === 'send') {
         try { await notify(j.text || '', j.files || []); } catch (e) { log('SEND-FAIL', e.message); return send(res, 503, { error: e.message }, 'application/json'); }
