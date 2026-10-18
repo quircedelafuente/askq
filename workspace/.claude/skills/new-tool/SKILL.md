@@ -19,6 +19,8 @@ you on the next message, and the guard knows which functions have real effects f
    endpoints you can reuse. Prefer these over clicking through pages.
 3. **Drive the website** with Playwright (headless Chromium) only if 1 and 2 are impossible.
    Install it for this tool with `askq tool deps <name> playwright` and `npx playwright install chromium`.
+   If Chromium fails to start because of missing system libraries, you cannot fix that yourself (no sudo): tell the
+   user to run once on the server `sudo npx playwright install-deps chromium`.
 
 Never try to bypass CAPTCHAs, bot protection or paywalls, and respect the site's terms. If the site blocks automation,
 tell the user plainly and suggest an alternative.

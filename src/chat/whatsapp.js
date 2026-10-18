@@ -115,9 +115,10 @@ export async function createChannel(cfg, onMessage) {
 
   async function start() {
     sock = await socket();
-    sock.ev.on('messages.upsert', ({ messages, type }) => {
-      if (type !== 'notify') return;
-      for (const m of messages) handle(m).catch(e => log('HANDLE-FAIL', e.message));
+    // Messages you type on your phone can arrive as 'notify' or 'append'; anything older than this start is history.
+    const since = Math.floor(Date.now() / 1000) - 5;
+    sock.ev.on('messages.upsert', ({ messages }) => {
+      for (const m of messages) if (Number(m.messageTimestamp) >= since) handle(m).catch(e => log('HANDLE-FAIL', e.message));
     });
     sock.ev.on('connection.update', async ({ connection, lastDisconnect }) => {
       if (connection === 'open') {

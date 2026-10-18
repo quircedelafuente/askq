@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { P, APP, loadConfig, loadEnv, readJSON, writePrivate, logger } from './config.js';
+import { P, APP, loadConfig, claudeEnv, readJSON, writePrivate, logger } from './config.js';
 import { asksForYes, isYes } from './confirm.js';
 
 const log = logger('agent');
@@ -60,7 +60,7 @@ function run(text, channel, expires) {
     '--allowedTools', ...allowedTools()];
   if (resume) args.push('--resume', resume);
 
-  const env = { ...process.env, ...loadEnv(), PATH: `${path.join(P.state, 'bin')}${path.delimiter}${process.env.PATH}`, ASKQ: '1', ASKQ_HOME: path.dirname(P.config), ASKQ_CHANNEL: channel,
+  const env = { ...process.env, ...claudeEnv(), PATH: `${path.join(P.state, 'bin')}${path.delimiter}${process.env.PATH}`, ASKQ: '1', ASKQ_HOME: path.dirname(P.config), ASKQ_CHANNEL: channel,
     ASKQ_YES: yes ? '1' : '0', ASKQ_TURN: crypto.randomUUID(), ASKQ_QUESTION: yes ? (sess.lastReply || '') : '' };
   if (yes) log('YES', channel, JSON.stringify(text));
 

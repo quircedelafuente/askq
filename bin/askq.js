@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import readline from 'node:readline';
 import { spawnSync, execFileSync } from 'node:child_process';
-import { P, APP, HOME, loadConfig, saveConfig, ensureDirs, getToken, rotateToken, setEnv, loadEnv, readJSON, writePrivate } from '../src/config.js';
+import { P, APP, HOME, loadConfig, saveConfig, ensureDirs, getToken, rotateToken, setEnv, loadEnv, claudeEnv, readJSON, writePrivate } from '../src/config.js';
 
 const [cmd, ...args] = process.argv.slice(2);
 const isMac = process.platform === 'darwin';
@@ -101,7 +101,7 @@ function claudeWorks() {
   const claude = process.env.ASKQ_CLAUDE || which('claude');
   if (!claude) return { ok: false, why: 'Claude Code is not installed (https://claude.com/claude-code).' };
   const r = spawnSync(claude, ['-p', 'Reply with exactly: OK', '--output-format', 'json', '--setting-sources', 'project,local', '--strict-mcp-config'],
-    { cwd: fs.existsSync(P.workspace) ? P.workspace : os.homedir(), env: { ...process.env, ...loadEnv() }, encoding: 'utf8', timeout: 90_000 });
+    { cwd: fs.existsSync(P.workspace) ? P.workspace : os.homedir(), env: { ...process.env, ...claudeEnv() }, encoding: 'utf8', timeout: 90_000 });
   try { const j = JSON.parse(r.stdout); return j.is_error ? { ok: false, why: j.result || j.subtype } : { ok: true }; }
   catch { return { ok: false, why: (r.stderr || r.stdout || '').trim().slice(0, 300) || 'no answer' }; }
 }
@@ -150,7 +150,8 @@ function tailscaleServe(port, httpsPort) {
   if (st.BackendState !== 'Running') return { ok: false, why: `Tailscale is ${st.BackendState}. Run: sudo tailscale up` };
   const host = String(st.Self?.DNSName || '').replace(/\.$/, '');
   const r = spawnSync(ts, ['serve', '--bg', `--https=${httpsPort}`, `http://127.0.0.1:${port}`], { encoding: 'utf8' });
-  if (r.status !== 0) return { ok: false, why: (r.stderr || r.stdout).trim().slice(0, 400) + (/access denied|permission/i.test(r.stderr) ? `\nRun once: sudo tailscale set --operator=$USER  (then askq setup again)` : '') };
+  if (r.status !== 0) return { ok: false, why: (r.stderr || r.stdout).trim().slice(0, 400) + (/access denied|permission/i.test(r.stderr) ? `\nRun once: sudo tailscale set --operator=$USER  (then askq setup again)` : '')
+    + (/https|certificate|cert/i.test(r.stderr + r.stdout) ? '\nTurn on HTTPS certificates for your tailnet: https://login.tailscale.com/admin/dns → "Enable HTTPS", then askq setup again.' : '') };
   return { ok: true, url: `https://${host}${httpsPort === 443 ? '' : `:${httpsPort}`}/ask` };
 }
 

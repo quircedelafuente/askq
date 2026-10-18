@@ -80,6 +80,11 @@ if [ -z "${ASKQ_SKIP_TAILSCALE:-}" ] && have tailscale && [ "$PLATFORM" != mac ]
   $SUDO tailscale set --operator="$USER" >/dev/null 2>&1 || true
 fi
 
+# Keep Ask Q running after you log out (servers): systemd "linger"
+if [ "$PLATFORM" != mac ] && have loginctl && ! loginctl show-user "$USER" -p Linger 2>/dev/null | grep -q yes; then
+  $SUDO loginctl enable-linger "$USER" 2>/dev/null || echo "Could not enable linger; run: sudo loginctl enable-linger $USER"
+fi
+
 # Ask Q itself
 step "Installing Ask Q in $APP"
 if [ -d "$APP/.git" ]; then git -C "$APP" pull --ff-only --quiet
@@ -89,6 +94,11 @@ mkdir -p "$BIN"
 ln -sf "$APP/bin/askq.js" "$BIN/askq"
 chmod +x "$APP/bin/askq.js"
 case ":$PATH:" in *":$BIN:"*) ;; *) for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do [ -f "$rc" ] && ! grep -q '.local/bin' "$rc" && echo 'export PATH="$HOME/.local/bin:$PATH"' >>"$rc"; done ;; esac
+
+# Browser support for tools that drive websites (headless Chromium + the system libraries it needs)
+if [ "$PLATFORM" != mac ] && [ -z "${ASKQ_NO_SETUP:-}" ] && confirm "Install browser support for tools that use websites without an API (~400 MB, uses sudo)?"; then
+  (cd "$APP" && $SUDO npx --yes playwright@1 install-deps chromium && npx --yes playwright@1 install chromium) || echo "Browser support failed; tools can install it later."
+fi
 
 if [ -n "${ASKQ_NO_SETUP:-}" ]; then bold "Ask Q installed. Run: askq setup"; exit 0; fi
 bold "Ask Q installed. Starting setup…"

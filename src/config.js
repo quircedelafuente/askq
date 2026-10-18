@@ -87,6 +87,13 @@ export function loadEnv() {
   }
   return out;
 }
+// Environment for Claude Code. `claude setup-token` prints tokens labelled "sk-ant-at01-" but Claude Code only accepts
+// "sk-ant-oat01-" (same token body); with the wrong label it just says "Not logged in". Fixed here, at the point of use.
+export function claudeEnv() {
+  const env = loadEnv();
+  if (env.CLAUDE_CODE_OAUTH_TOKEN?.startsWith('sk-ant-at01-')) env.CLAUDE_CODE_OAUTH_TOKEN = 'sk-ant-oat01-' + env.CLAUDE_CODE_OAUTH_TOKEN.slice('sk-ant-at01-'.length);
+  return env;
+}
 export function setEnv(key, value) {
   const env = loadEnv();
   if (value == null || value === '') delete env[key]; else env[key] = value;
