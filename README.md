@@ -30,6 +30,8 @@ WhatsApp / Telegram ─┼─►  your machine (private, via Tailscale)  ─► 
 
 ## Install
 
+> **New to servers, Tailscale or the terminal?** Follow [Getting started from zero](docs/getting-started.md): every account, click and command, step by step.
+
 **Linux, macOS, or a free cloud server** (one command):
 
 ```bash
@@ -74,6 +76,7 @@ askq start|stop|restart|status|logs
 
 ## Docs
 
+- [Getting started from zero](docs/getting-started.md) — every account and step, for beginners
 - [Install](docs/install.md) — free server, your own Mac/PC, Windows
 - [Siri shortcut](docs/siri-shortcut.md)
 - [WhatsApp and Telegram](docs/channels.md)

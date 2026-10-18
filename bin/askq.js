@@ -151,7 +151,7 @@ function tailscaleServe(port, httpsPort) {
   const host = String(st.Self?.DNSName || '').replace(/\.$/, '');
   const r = spawnSync(ts, ['serve', '--bg', `--https=${httpsPort}`, `http://127.0.0.1:${port}`], { encoding: 'utf8' });
   if (r.status !== 0) return { ok: false, why: (r.stderr || r.stdout).trim().slice(0, 400) + (/access denied|permission/i.test(r.stderr) ? `\nRun once: sudo tailscale set --operator=$USER  (then askq setup again)` : '')
-    + (/https|certificate|cert/i.test(r.stderr + r.stdout) ? '\nTurn on HTTPS certificates for your tailnet: https://login.tailscale.com/admin/dns → "Enable HTTPS", then askq setup again.' : '') };
+    + (/https|certificate|cert/i.test(r.stderr + r.stdout) ? '\nYour tailnet needs HTTPS certificates turned on.' : '') };
   return { ok: true, url: `https://${host}${httpsPort === 443 ? '' : `:${httpsPort}`}/ask` };
 }
 
@@ -230,11 +230,30 @@ async function setup() {
 
   // Tailscale
   console.log(`\n${bold('6. Private access from your phone (Tailscale)')}`);
+  info('Tailscale connects your phone and this machine privately. You need the Tailscale app on your phone,');
+  info('signed in with Google/Apple/Microsoft/GitHub — this machine must use the SAME account. (Guide: docs/getting-started.md)');
   let url = null;
   const port = parseInt(await askText('HTTPS port on your tailnet', '443'), 10) || 443;
-  const t = tailscaleServe(loadConfig().port, port);
+  let t = tailscaleServe(loadConfig().port, port);
+  for (let tries = 0; !t.ok && tries < 3; tries++) {
+    bad(t.why);
+    if (!tailscaleBin()) {
+      info(isMac ? 'Install the Tailscale app: https://tailscale.com/download/mac (sign in with the same account as your phone).'
+        : 'Install it with: curl -fsSL https://tailscale.com/install.sh | sh');
+    } else if (/not running|not logged in|NeedsLogin|Stopped|tailscale up/i.test(t.why) && !isMac) {
+      if (!await askYes('Log this machine in to Tailscale now? (opens a link to sign in)')) break;
+      spawnSync('sudo', [tailscaleBin(), 'up'], { stdio: 'inherit' });
+      spawnSync('sudo', [tailscaleBin(), 'set', `--operator=${os.userInfo().username}`], { stdio: 'inherit' });
+    } else if (/HTTPS certificates/.test(t.why)) {
+      await question('Enable HTTPS at https://login.tailscale.com/admin/dns ("HTTPS Certificates" → Enable HTTPS), then press Enter… ');
+    } else if (/operator/.test(t.why) && !isMac) {
+      if (!await askYes('Allow Ask Q to configure Tailscale without sudo (tailscale set --operator)?')) break;
+      spawnSync('sudo', [tailscaleBin(), 'set', `--operator=${os.userInfo().username}`], { stdio: 'inherit' });
+    } else if (!await askYes('Try again?')) break;
+    t = tailscaleServe(loadConfig().port, port);
+  }
   if (t.ok) { url = t.url; ok(`Reachable only from your Tailscale devices: ${url}`); }
-  else { bad(t.why); info('Install Tailscale (https://tailscale.com/download) on this machine and on your phone, log in with the same account, and run askq setup again.'); }
+  else info('When Tailscale is ready, run askq setup again (your answers are kept).');
   close();
   await printSiri(url);
   console.log(`\nDone. Check everything with ${bold('askq doctor')}.`);
