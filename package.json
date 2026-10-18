@@ -1,0 +1,22 @@
+{
+  "name": "askq",
+  "version": "0.1.0",
+  "description": "Your own AI assistant that gets real things done. Talk to it from Siri, WhatsApp or Telegram; it runs Claude Code on your own machine and uses tools you create by just asking.",
+  "license": "MIT",
+  "author": "Quirce de la Fuente",
+  "homepage": "https://github.com/quircedelafuente/askq",
+  "repository": { "type": "git", "url": "git+https://github.com/quircedelafuente/askq.git" },
+  "type": "module",
+  "bin": { "askq": "bin/askq.js" },
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "@whiskeysockets/baileys": "^7.0.0-rc14",
+    "pino": "^10.4.0",
+    "qrcode": "^1.5.4",
+    "zod": "^4.6.7"
+  }
+}
