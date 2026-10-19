@@ -10,5 +10,5 @@ shortcuts sign --mode anyone --input "shortcut/Ask Q.unsigned.shortcut" --output
 open "shortcut/Ask Q.shortcut"   # add it, leave both questions empty
 ```
 
-Then in Shortcuts: right click **Ask Q** → Share → **Copy iCloud Link**, and put that link in place of `ICLOUD_LINK`
+Then in Shortcuts: right click **Ask Q** → Share → **Copy iCloud Link**, and put that link in place of the current link
 in the README and docs. Check that the shared shortcut has no URL or token before publishing.
