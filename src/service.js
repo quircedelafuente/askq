@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { P, APP, HOME } from './config.js';
+import { ENGINES } from './engines.js';
 
 const LABEL = 'dev.askq.agent';
 const UNIT = path.join(os.homedir(), '.config', 'systemd', 'user', 'askq.service');
@@ -15,7 +16,8 @@ const which = cmd => { try { return execFileSync('which', [cmd], { encoding: 'ut
 export const claudePath = () => process.env.ASKQ_CLAUDE || which('claude') || [path.join(os.homedir(), '.local', 'bin', 'claude'), '/opt/homebrew/bin/claude', '/usr/local/bin/claude'].find(f => fs.existsSync(f)) || null;
 
 function envPath() {
-  const dirs = [path.dirname(process.execPath), claudePath() && path.dirname(claudePath()), path.join(os.homedir(), '.local', 'bin'), '/opt/homebrew/bin', '/usr/local/bin', '/usr/bin', '/bin'];
+  const engines = Object.values(ENGINES).map(e => e.bin()).filter(Boolean).map(b => path.dirname(b));
+  const dirs = [path.dirname(process.execPath), claudePath() && path.dirname(claudePath()), ...engines, path.join(os.homedir(), '.local', 'bin'), '/opt/homebrew/bin', '/usr/local/bin', '/usr/bin', '/bin'];
   return [...new Set(dirs.filter(Boolean))].join(':');
 }
 

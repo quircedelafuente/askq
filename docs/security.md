@@ -25,6 +25,9 @@ download from strangers.
 
 ## Limits you should know
 
+- **Other engines (Codex, Cursor, Antigravity)** apply the "yes" rule to tools through a proxy, but do not check shell
+  commands. Claude Code checks both. See [engines](engines.md).
+
 - **The assistant has a shell.** To build and test tools, Claude Code can run commands as your user. The guard stops
   known ways of sending data out (uploads with curl, scp, ssh…) and Claude Code permission rules protect Ask Q's own
   config and secrets, but a determined prompt injection could still find other paths. Run Ask Q on a machine or

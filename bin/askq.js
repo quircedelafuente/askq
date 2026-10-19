@@ -6,6 +6,7 @@ import path from 'node:path';
 import readline from 'node:readline';
 import { spawn, spawnSync, execFileSync } from 'node:child_process';
 import { findToken } from '../src/claude-token.js';
+import { ENGINES, engineName } from '../src/engines.js';
 import { P, APP, HOME, loadConfig, saveConfig, ensureDirs, getToken, rotateToken, setEnv, loadEnv, claudeEnv, readJSON, writePrivate } from '../src/config.js';
 
 const [cmd, ...args] = process.argv.slice(2);
@@ -106,6 +107,47 @@ function claudeWorks() {
     { cwd: fs.existsSync(P.workspace) ? P.workspace : os.homedir(), env: { ...process.env, ...claudeEnv() }, encoding: 'utf8', timeout: 90_000 });
   try { const j = JSON.parse(r.stdout); return j.is_error ? { ok: false, why: j.result || j.subtype } : { ok: true }; }
   catch { return { ok: false, why: (r.stderr || r.stdout || '').trim().slice(0, 300) || 'no answer' }; }
+}
+
+// One short turn with another engine (Codex, Cursor, Antigravity), to check it is installed and signed in.
+function engineWorks(name) {
+  if (name === 'claude') return claudeWorks();
+  const e = ENGINES[name], bin = e.bin();
+  if (!bin) return { ok: false, why: `${e.label} is not installed (${e.install}).` };
+  const r = spawnSync(bin, e.args({ text: 'Reply with exactly: OK', system: 'Answer briefly.', resume: null, allowed: [] }),
+    { cwd: fs.existsSync(P.workspace) ? P.workspace : os.homedir(), env: { ...process.env, ...e.env() }, encoding: 'utf8', timeout: 150_000, stdio: ['ignore', 'pipe', 'pipe'] });
+  try { const j = e.parse(r.stdout); return j.text && !j.error ? { ok: true } : { ok: false, why: j.error || 'no answer' }; }
+  catch { return { ok: false, why: (r.stderr || r.stdout || '').trim().split('\n').slice(-3).join(' ').slice(0, 300) || 'no answer' }; }
+}
+
+// Install and sign in to Codex, Cursor or Antigravity.
+async function setupEngine(name) {
+  const e = ENGINES[name];
+  if (!e.bin()) {
+    info(`${e.label} is not installed. It installs with: ${bold(e.install)}`);
+    if (await askYes('Install it now?')) { close(); spawnSync('bash', ['-c', e.install], { stdio: 'inherit' }); }
+    if (!e.bin()) return bad(`${e.label} is still not installed. Install it, open a new terminal and run askq setup again.`);
+  }
+  let c = engineWorks(name);
+  if (c.ok) return ok(`${e.label} works on this machine.`);
+  info(c.why);
+  if (name === 'codex' && await choose('How do you want to pay for Codex?', [
+    { label: 'My ChatGPT subscription', hint: 'you sign in with a code in your browser', value: 'sub' },
+    { label: 'An OpenAI API key', hint: 'from platform.openai.com, pay per use', value: 'api' }]) === 'api') {
+    const key = await askSecret('OpenAI API key (hidden): ');
+    close(); spawnSync(e.bin(), ['login', '--with-api-key'], { input: key + '\n', stdio: ['pipe', 'inherit', 'inherit'] });
+  } else if (name === 'cursor' && await choose('How do you want to sign in to Cursor?', [
+    { label: 'My Cursor account', hint: 'you sign in in your browser', value: 'login' },
+    { label: 'A Cursor API key', hint: 'from cursor.com/dashboard → Integrations', value: 'api' }]) === 'api') {
+    setEnv('CURSOR_API_KEY', await askSecret('Cursor API key (hidden): '));
+  } else {
+    console.log(`\n  ${e.label} will show a sign-in link. Open it on any device, sign in, and paste the code back here if it asks.\n`);
+    close();
+    if (name === 'antigravity') spawnSync(e.bin(), ['-p', 'Reply with exactly: OK'], { stdio: 'inherit', cwd: P.workspace });
+    else spawnSync(e.bin(), e.login, { stdio: 'inherit', env: { ...process.env, ...e.env() } });
+  }
+  c = engineWorks(name);
+  c.ok ? ok(`${e.label} works.`) : bad(`${e.label} still does not answer: ${c.why}\n  Fix it and run askq setup again (or askq doctor).`);
 }
 
 // Runs `claude setup-token` in a real terminal (so its sign-in screen works) and picks the token out of what it prints,
@@ -224,10 +266,15 @@ async function setup() {
   saveConfig(cfg);
   writeWorkspace(cfg);
 
-  // Claude
-  console.log(`\n${bold('1. Claude')}`);
-  let c = claudeWorks();
-  if (c.ok) ok('Claude Code works on this machine.');
+  // The AI
+  console.log(`\n${bold('1. The AI')} ${dim('(what understands you and uses the tools)')}`);
+  const names = Object.keys(ENGINES);
+  cfg.engine = await choose('Which one?', names.map(n => ({ label: ENGINES[n].label, hint: n === 'claude' ? `recommended · ${ENGINES[n].account}` : `${ENGINES[n].account} · see docs/engines.md`, value: n })),
+    names.indexOf(engineName(cfg)));
+  saveConfig(cfg);
+  let c = cfg.engine === 'claude' ? claudeWorks() : { ok: true, other: true };
+  if (c.other) await setupEngine(cfg.engine);
+  else if (c.ok) ok('Claude Code works on this machine.');
   else {
     info(c.why);
     const how = await choose('How do you want to pay for Claude?', [
@@ -327,7 +374,7 @@ async function doctor() {
   v >= 20 ? ok(`Node ${process.versions.node}`) : bad(`Node ${process.versions.node} (needs 20+)`);
   fs.existsSync(P.config) ? ok(`Config: ${P.config}`) : bad('Not set up: run askq setup');
   fs.existsSync(path.join(P.workspace, 'CLAUDE.md')) ? ok('Workspace') : bad('Workspace missing: run askq setup');
-  if (!args.includes('--fast')) { const c = claudeWorks(); c.ok ? ok('Claude Code answers') : bad(`Claude Code: ${c.why}`); }
+  if (!args.includes('--fast')) { const e = ENGINES[engineName(cfg)], c = engineWorks(engineName(cfg)); c.ok ? ok(`${e.label} answers`) : bad(`${e.label}: ${c.why}`); }
   const fx = readJSON(P.effectTools, null);
   fx ? ok(`Tools: ${Object.keys(readJSON(P.mcp, { mcpServers: {} }).mcpServers).length} (${fx.readOnly.length} read-only functions, ${fx.effect.length} need "yes")`) : bad('Tools not synced: askq tools sync');
   const svc = await import('../src/service.js');

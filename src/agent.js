@@ -1,11 +1,12 @@
-// Runs one turn of the assistant: Claude Code without a screen (`claude -p`) in ~/.askq/workspace, with the tools
-// in ~/.askq/mcp.json. Each channel (siri, whatsapp, telegram) keeps its own conversation (--resume).
+// Runs one turn of the assistant: the engine (Claude Code by default, see src/engines.js) without a screen, in
+// ~/.askq/workspace, with the tools in ~/.askq/mcp.json. Each channel (siri, whatsapp, telegram) keeps its own conversation (--resume).
 // Only one turn runs at a time; the next one waits.
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { P, APP, loadConfig, claudeEnv, readJSON, writePrivate, logger } from './config.js';
+import { P, APP, loadConfig, readJSON, writePrivate, logger } from './config.js';
+import { ENGINES, engineName, prepareWorkspace } from './engines.js';
 import { asksForYes, isYes } from './confirm.js';
 
 const log = logger('agent');
@@ -70,26 +71,25 @@ function run(text, channel, expires) {
   const cfg = loadConfig();
   const sess = readSessions()[channel] || {};
   const fresh = expires && (Date.now() - (sess.t || 0) > expires * 60_000);
-  const resume = sess.id && !fresh ? sess.id : null;
+  const name = engineName(cfg);
+  const resume = sess.id && !fresh && (sess.engine || 'claude') === name ? sess.id : null;   // a session belongs to one engine
   // The "yes" is decided here, from what the user said, and handed to the guard hook through the environment.
   const yes = !!resume && sess.asked === true && isYes(text);
 
-  const args = ['-p', text, '--output-format', 'json',
-    '--append-system-prompt', `${STYLE[channel](cfg.language)}\n${RULES}\n${channel === 'siri' ? EARLY.siri : channel === 'cli' ? '' : EARLY.chat}`,
-    '--setting-sources', 'project,local',
-    '--strict-mcp-config', '--mcp-config', P.mcp,
-    '--allowedTools', ...allowedTools()];
-  if (resume) args.push('--resume', resume);
+  const engine = ENGINES[name];
+  prepareWorkspace(cfg);   // tools and instructions in the engine's own format (new tools appear from the next turn)
+  const system = `${STYLE[channel](cfg.language)}\n${RULES}\n${channel === 'siri' ? EARLY.siri : channel === 'cli' ? '' : EARLY.chat}`;
+  const args = engine.args({ text, system, resume, allowed: allowedTools() });
 
   const turnId = crypto.randomUUID(), question = yes ? (sess.lastReply || '') : '';
-  const env = { ...process.env, ...claudeEnv(), PATH: `${path.join(P.state, 'bin')}${path.delimiter}${process.env.PATH}`, ASKQ: '1', ASKQ_HOME: path.dirname(P.config), ASKQ_CHANNEL: channel,
+  const env = { ...process.env, ...engine.env(), PATH: `${path.join(P.state, 'bin')}${path.delimiter}${process.env.PATH}`, ASKQ: '1', ASKQ_HOME: path.dirname(P.config), ASKQ_CHANNEL: channel,
     ASKQ_YES: yes ? '1' : '0', ASKQ_TURN: turnId, ASKQ_QUESTION: question };
   // Also on disk, for the tool proxy of engines whose MCP servers don't get our environment (src/mcp-proxy.mjs)
   writePrivate(TURN, JSON.stringify({ turn: turnId, yes, question, channel, until: Date.now() + MAX_MINUTES * 60_000 }));
   if (yes) log('YES', channel, JSON.stringify(text));
 
   return new Promise(resolve => {
-    const p = spawn(process.env.ASKQ_CLAUDE || 'claude', args, { cwd: P.workspace, env, stdio: ['ignore', 'pipe', 'pipe'] });
+    const p = spawn(engine.bin() || name, args, { cwd: P.workspace, env, stdio: ['ignore', 'pipe', 'pipe'] });
     let out = '', err = '';
     p.stdout.on('data', d => { out += d; });
     p.stderr.on('data', d => { err += d; });
@@ -100,15 +100,17 @@ function run(text, channel, expires) {
       fs.rmSync(TURN, { force: true });
       let reply;
       try {
-        const j = JSON.parse(out);
-        if (j.permission_denials?.length) log('DENIED', JSON.stringify(j.permission_denials).slice(0, 1500));
-        reply = String(j.result || '').trim() || (j.is_error ? `Error: ${j.subtype || 'unknown'}` : 'I have no answer.');
-        saveSession(channel, { id: j.session_id || resume, t: Date.now(), asked: asksForYes(reply), lastReply: reply.slice(0, 2000) });
+        const r = engine.parse(out);
+        if (r.denied?.length) log('DENIED', JSON.stringify(r.denied).slice(0, 1500));
+        reply = r.text || (!r.error ? 'I have no answer.'
+          : /401|unauthori[sz]ed|not logged in|login|authenticat|api key/i.test(r.error) ? `${engine.label} is not signed in on the server. Run: askq doctor`
+          : `Error: ${r.error}`);
+        saveSession(channel, { id: r.session || resume, engine: name, t: Date.now(), asked: asksForYes(reply), lastReply: reply.slice(0, 2000) });
         log('OK', channel, resume ? 'resume' : 'new', JSON.stringify(text.slice(0, 200)), '→', JSON.stringify(reply.slice(0, 300)));
       } catch {
         log('ERROR', channel, code, err.slice(0, 800), out.slice(0, 300));
         reply = /not logged in|login|authenticat|api key/i.test(err + out)
-          ? 'Claude Code is not signed in on the server. Run: askq doctor'
+          ? `${engine.label} is not signed in on the server. Run: askq doctor`
           : 'Something failed on the server. Run: askq logs';
       }
       resolve(reply);

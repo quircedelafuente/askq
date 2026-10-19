@@ -2,7 +2,7 @@
 
 **Your own AI assistant that gets real things done.** Say *"Hey Siri, Ask Q: get me a bus ticket to Madrid on Thursday at 9"* and the ticket lands in your WhatsApp a minute later.
 
-Ask Q runs [Claude Code](https://claude.com/claude-code) on **your** machine (a free cloud server or your own computer) and gives it tools to act for you: book, buy, check, remind, send. You talk to it from **Siri**, **WhatsApp** or **Telegram**.
+Ask Q runs [Claude Code](https://claude.com/claude-code) (or [Codex, Cursor or Antigravity](docs/engines.md)) on **your** machine (a free cloud server or your own computer) and gives it tools to act for you: book, buy, check, remind, send. You talk to it from **Siri**, **WhatsApp** or **Telegram**.
 
 And you can teach it anything: *"create a tool for my gym's website"* — it builds the tool, tests it, and from your next message you can ask for it by voice. Even if that website has no API.
 
@@ -24,7 +24,7 @@ WhatsApp / Telegram ─┼─►  your machine (private, via Tailscale)  ─► 
 ## Why it's different
 
 - **It's yours.** Everything runs on your machine with your data. No company holds your passwords.
-- **No extra bill.** Use your Claude subscription (Pro/Max) or an API key. The server can be [free](docs/install.md#free-server).
+- **No extra bill.** Use the subscription you already pay for: Claude, ChatGPT (Codex), Cursor or Google (Antigravity), or an API key. The server can be [free](docs/install.md#free-server).
 - **Build your own tools by asking.** Every tool is a standard [MCP](https://modelcontextprotocol.io) server, so it also works in Claude Desktop, Claude Code and any MCP client.
 - **Private by default.** Nothing is exposed to the internet: your phone reaches it through [Tailscale](https://tailscale.com). Actions that pay, book or send ask you first.
 
@@ -82,6 +82,7 @@ askq start|stop|restart|status|logs
 - [Siri shortcut](docs/siri-shortcut.md)
 - [WhatsApp and Telegram](docs/channels.md)
 - [Android](docs/android.md)
+- [Choosing the AI](docs/engines.md) — Claude Code, Codex, Cursor or Antigravity
 - [Creating tools](docs/creating-tools.md)
 - [Security](docs/security.md) — how it's protected and its limits
 - [Troubleshooting & FAQ](docs/troubleshooting.md)
@@ -89,9 +90,9 @@ askq start|stop|restart|status|logs
 ## Requirements
 
 - A machine that stays on: a free cloud VM, a Mac, a Linux box, a Raspberry Pi 4/5, or Windows with WSL2
-- A Claude subscription (Pro or Max) or an Anthropic API key
+- A Claude subscription (Pro or Max) or an Anthropic API key — or ChatGPT, Cursor or Google with the [other engines](docs/engines.md)
 - A free Tailscale account, on that machine and on your phone
 
 ## License
 
-[MIT](LICENSE) © Quirce de la Fuente. Not affiliated with Anthropic, Apple, Google, Meta or Telegram. Claude is a trademark of Anthropic; Siri is a trademark of Apple.
+[MIT](LICENSE) © Quirce de la Fuente. Not affiliated with Anthropic, OpenAI, Cursor (Anysphere), Apple, Google, Meta or Telegram. Claude is a trademark of Anthropic; Siri is a trademark of Apple.

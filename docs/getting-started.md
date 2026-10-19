@@ -86,6 +86,8 @@ to accept. Then:
    *(On a Mac, install the Tailscale app from https://tailscale.com/download/mac and sign in there instead.)*
 2. **Setup questions.** `askq setup` starts:
    - **Name, language, timezone** — type them or press Enter.
+   - **The AI** — press Enter for Claude Code (recommended). Prefer ChatGPT, Cursor or Google? Pick Codex, Cursor or
+     Antigravity: setup installs it and opens its sign-in ([details](engines.md)).
    - **Claude** — if it isn't signed in yet:
      - With a subscription: choose option 1. It shows a sign-in link: open it (on your computer or phone), sign in to
        Claude and approve. If the page gives you a code, paste it back in the terminal. Setup picks up the token by itself.
