@@ -4,6 +4,7 @@
 # Installs what is missing (git, Node.js 20+, Claude Code), puts Ask Q in ~/.askq/app, adds the `askq` command and
 # starts `askq setup` (which offers Tailscale). It asks before using sudo. Re-running it updates Ask Q.
 set -euo pipefail
+cd "$HOME"   # the current folder may be gone (e.g. ~/.askq/app after askq uninstall); git needs a real one
 
 REPO="${ASKQ_REPO:-https://github.com/quircedelafuente/askq.git}"
 APP="${ASKQ_APP:-$HOME/.askq/app}"
