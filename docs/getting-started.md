@@ -123,7 +123,7 @@ any phone, link it the same way, and save the number in your contacts as "Ask Q"
 ## Step 6 — The Siri shortcut
 
 1. On your iPhone, make sure **Tailscale is connected** (Step 3).
-2. Open the **Ask Q shortcut link** in the [README](../README.md#install) → **Add Shortcut**.
+2. Open **[the Ask Q shortcut](ICLOUD_LINK)** on the iPhone → **Add Shortcut**.
 3. It asks two questions:
    - **URL** — type the URL from Step 4 (or send it to yourself in the chat and copy it).
    - **Token** — on the machine run `askq token --qr`, point the iPhone camera at the QR, tap the text that appears

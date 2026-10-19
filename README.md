@@ -46,7 +46,7 @@ irm https://raw.githubusercontent.com/quircedelafuente/askq/main/install.ps1 | i
 
 The installer adds what's missing (Node.js, Claude Code, Tailscale) and walks you through setup. Then:
 
-1. **Siri** → build the shortcut in 2 minutes: [docs/siri-shortcut.md](docs/siri-shortcut.md)
+1. **Siri** → add [the Ask Q shortcut](ICLOUD_LINK) on your iPhone and paste your URL and token ([details](docs/siri-shortcut.md))
 2. **WhatsApp or Telegram** → link it during setup, or later with `askq link whatsapp` / `askq link telegram`
 3. **Android** → [docs/android.md](docs/android.md)
 

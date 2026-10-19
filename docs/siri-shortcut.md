@@ -10,7 +10,19 @@ You need two things from your Ask Q machine:
 
 Your iPhone must have the **Tailscale** app installed and connected to the same account.
 
-## Build it (iPhone or Mac, ~2 minutes)
+## Install it (1 tap)
+
+1. On your iPhone, open **[the Ask Q shortcut](ICLOUD_LINK)** → **Add Shortcut**.
+2. It asks two questions: paste your **token** and your **URL**.
+3. Say **"Hey Siri, Ask Q"**. Siri says "I'm listening": ask your question.
+
+When Ask Q asks you something ("Should I book it?") Siri listens again, so you can just say "yes". When the answer is
+just information, Siri reads it and the shortcut ends.
+
+The shortcut is built from [`shortcut/build.py`](../shortcut/build.py), so you can see exactly what it does: it only
+sends what you say to your own URL.
+
+## Or build it yourself (iPhone or Mac, ~2 minutes)
 
 Open **Shortcuts** → **+** (new shortcut) → name it **Ask Q** (that's what you'll say to Siri). Add these actions in order:
 
