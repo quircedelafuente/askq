@@ -15,12 +15,41 @@ have() { command -v "$1" >/dev/null 2>&1; }
 TTY=/dev/tty; [ -r "$TTY" ] || TTY=/dev/stdin
 confirm() { local a; read -r -p "$1 [Y/n] " a <"$TTY" || true; [[ -z "$a" || "$a" =~ ^[YySs] ]]; }
 
+# Header: the Ask Q logo in neon, switched on like a neon tube (off → flicker → on) when this is a terminal.
+banner_lines() {
+  local _B=$'\033[1m' _R=$'\033[0m' _G=$'\033[38;2;236;255;143m' _N=$'\033[38;2;198;247;0m' _S=$'\033[38;2;127;163;0m' _Y=$'\033[38;2;138;138;134m'
+  if [ "$1" = off ]; then _G=$'\033[38;2;58;58;54m'; _N=$_G; _S=$_G; _Y=$_G; fi
+  printf '%s\n' "  ${_B}${_G}     ▄▄▄██████▄▄        ${_R}"
+  printf '%s\n' "  ${_B}${_G}   ▄██████████████▄     ${_R}"
+  printf '%s\n' "  ${_B}${_G} ▄████████▀▀███████▄    ${_R}"
+  printf '%s\n' "  ${_B}${_N} █████▀       ▀██████   ${_R}    ${_B}${_S} ${_R}${_B}${_N}█████${_R}${_B}${_S}╗ ${_R}${_B}${_N}███████${_R}${_B}${_S}╗${_R}${_B}${_N}██${_R}${_B}${_S}╗  ${_R}${_B}${_N}██${_R}${_B}${_S}╗    ${_R}${_B}${_N}██████${_R}${_B}${_S}╗ ${_R}"
+  printf '%s\n' "  ${_B}${_N}██████          █████   ${_R}    ${_B}${_N}██${_R}${_B}${_S}╔══${_R}${_B}${_N}██${_R}${_B}${_S}╗${_R}${_B}${_N}██${_R}${_B}${_S}╔════╝${_R}${_B}${_N}██${_R}${_B}${_S}║ ${_R}${_B}${_N}██${_R}${_B}${_S}╔╝   ${_R}${_B}${_N}██${_R}${_B}${_S}╔═══${_R}${_B}${_N}██${_R}${_B}${_S}╗${_R}"
+  printf '%s\n' "  ${_B}${_N}█████    ▄▄▄▄▄▄▄█████   ${_R}    ${_B}${_N}███████${_R}${_B}${_S}║${_R}${_B}${_N}███████${_R}${_B}${_S}╗${_R}${_B}${_N}█████${_R}${_B}${_S}╔╝    ${_R}${_B}${_N}██${_R}${_B}${_S}║   ${_R}${_B}${_N}██${_R}${_B}${_S}║${_R}"
+  printf '%s\n' "  ${_B}${_N}██████    ▀██████████   ${_R}    ${_B}${_N}██${_R}${_B}${_S}╔══${_R}${_B}${_N}██${_R}${_B}${_S}║╚════${_R}${_B}${_N}██${_R}${_B}${_S}║${_R}${_B}${_N}██${_R}${_B}${_S}╔═${_R}${_B}${_N}██${_R}${_B}${_S}╗    ${_R}${_B}${_N}██${_R}${_B}${_S}║${_R}${_B}${_N}▄▄ ██${_R}${_B}${_S}║${_R}"
+  printf '%s\n' "  ${_B}${_N} ██████▄   ▀████████▀   ${_R}    ${_B}${_N}██${_R}${_B}${_S}║  ${_R}${_B}${_N}██${_R}${_B}${_S}║${_R}${_B}${_N}███████${_R}${_B}${_S}║${_R}${_B}${_N}██${_R}${_B}${_S}║  ${_R}${_B}${_N}██${_R}${_B}${_S}╗   ╚${_R}${_B}${_N}██████${_R}${_B}${_S}╔╝${_R}"
+  printf '%s\n' "  ${_B}${_N}  ▀█████████ ███████    ${_R}    ${_B}${_S}╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝    ╚══${_R}${_B}${_N}▀▀${_R}${_B}${_S}═╝ ${_R}"
+  printf '%s\n' "  ${_B}${_N}    ▀███████▄ ▀█████▄   ${_R}"
+  printf '%s\n' "  ${_B}${_S}       ▀▀▀▀▀▀  ▀██████  ${_R}"
+  printf '%s\n' "  ${_B}${_S}                 ██████▄${_R}"
+  printf '\n%s\n' "${_Y}                              Siri · WhatsApp · Telegram  →  your AI  →  your tools${_R}"
+}
+banner() {
+  echo
+  if [ -t 1 ]; then
+    local n=14 t; printf '\033[?25l'; banner_lines off; sleep 0.12
+    for t in 0.06 0.05 0.09; do printf "\033[${n}A"; banner_lines on; sleep "$t"; printf "\033[${n}A"; banner_lines off; sleep 0.04; done
+    printf "\033[${n}A"; banner_lines on; printf '\033[?25h'
+  else banner_lines on; fi
+  echo
+}
+
 OS="$(uname -s)"
 case "$OS" in
   Linux)  PLATFORM=linux; grep -qi microsoft /proc/version 2>/dev/null && PLATFORM=wsl ;;
   Darwin) PLATFORM=mac ;;
   *) die "Unsupported system: $OS. On Windows, use install.ps1 (it sets up WSL2)." ;;
 esac
+banner
 bold "Ask Q installer ($PLATFORM, $(uname -m))"
 
 SUDO=""; [ "$(id -u)" -ne 0 ] && have sudo && SUDO="sudo"
@@ -83,4 +112,4 @@ fi
 
 if [ -n "${ASKQ_NO_SETUP:-}" ]; then bold "Ask Q installed. Run: askq setup"; exit 0; fi
 bold "Ask Q installed. Starting setup…"
-exec "$BIN/askq" setup <"$TTY"
+ASKQ_NO_BANNER=1 exec "$BIN/askq" setup <"$TTY"

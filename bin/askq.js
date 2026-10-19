@@ -451,6 +451,7 @@ function saveAnswers(cfg) {
 }
 
 async function setup() {
+  if (!process.env.ASKQ_NO_BANNER) await (await import('../src/banner.js')).banner();   // the installer already showed it
   console.log(`${bold('Ask Q setup')} ${dim(`(${HOME})`)}`);
   if (process.stdin.isTTY) console.log(dim('Press Esc at any question to save your answers so far and exit.'));
   console.log();
