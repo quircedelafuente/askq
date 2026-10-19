@@ -9,7 +9,7 @@ import { findToken } from '../src/claude-token.js';
 import { P, APP, HOME, loadConfig, saveConfig, ensureDirs, getToken, rotateToken, setEnv, loadEnv, claudeEnv, readJSON, writePrivate } from '../src/config.js';
 
 const [cmd, ...args] = process.argv.slice(2);
-const SHORTCUT = 'https://www.icloud.com/shortcuts/e1315a2a57eb4d1ea67a3552f287e751';
+const SHORTCUT = 'https://www.icloud.com/shortcuts/bb7e05a8316a4b3ab19bba51307ba3f8';
 const isMac = process.platform === 'darwin';
 const bold = s => `\x1b[1m${s}\x1b[0m`, dim = s => `\x1b[2m${s}\x1b[0m`, green = s => `\x1b[32m${s}\x1b[0m`, red = s => `\x1b[31m${s}\x1b[0m`;
 const ok = s => console.log(`${green('✓')} ${s}`), bad = s => console.log(`${red('✗')} ${s}`), info = s => console.log(`  ${s}`);

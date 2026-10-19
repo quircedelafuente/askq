@@ -122,7 +122,7 @@ any phone, link it the same way, and save the number in your contacts as "Ask Q"
 ## Step 6 — The Siri shortcut
 
 1. On your iPhone, make sure **Tailscale is connected** (Step 3).
-2. Open **[the Ask Q shortcut](https://www.icloud.com/shortcuts/e1315a2a57eb4d1ea67a3552f287e751)** on the iPhone → **Add Shortcut**.
+2. Open **[the Ask Q shortcut](https://www.icloud.com/shortcuts/bb7e05a8316a4b3ab19bba51307ba3f8)** on the iPhone → **Add Shortcut**.
 3. It asks two questions:
    - **Token** — point the iPhone camera at the first QR from Step 4, tap the text that appears, **Copy**, and paste it.
    - **URL** — the same with the second QR.

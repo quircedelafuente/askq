@@ -13,7 +13,7 @@ Your iPhone must have the **Tailscale** app installed and connected to the same 
 
 ## Install it (1 tap)
 
-1. On your iPhone, open **[the Ask Q shortcut](https://www.icloud.com/shortcuts/e1315a2a57eb4d1ea67a3552f287e751)** → **Add Shortcut**.
+1. On your iPhone, open **[the Ask Q shortcut](https://www.icloud.com/shortcuts/bb7e05a8316a4b3ab19bba51307ba3f8)** → **Add Shortcut**.
 2. It asks two questions: paste your **token** and your **URL**.
 3. Say **"Hey Siri, Ask Q"**. Siri says "I'm listening": ask your question.
 
