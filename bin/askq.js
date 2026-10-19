@@ -653,6 +653,28 @@ async function login() {
   info('You will get a message in the chat when the session is saved.');
 }
 
+// `askq update [--check]`: through the running service when there is one (it restarts itself once idle), else here.
+async function update() {
+  const install = !args.includes('--check');
+  let r;
+  if (await health()) {
+    const { internalToken } = await import('../src/config.js');
+    r = await fetch(`http://127.0.0.1:${loadConfig().port}/internal/update`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${internalToken()}` },
+      body: JSON.stringify({ install }), signal: AbortSignal.timeout(15 * 60_000),
+    }).then(x => x.json());
+  } else {
+    const u = await import('../src/update.js');
+    r = install ? u.apply() : u.check();
+    if (r.changes?.length) r.summary = u.describe(r.changes);
+  }
+  if (!r.ok) throw new Error(r.why);
+  if (!r.behind) return ok(`Ask Q is up to date (${r.current}).`);
+  console.log(r.summary);
+  if (!install) return info(`${r.behind} change(s) available. Install them with: askq update`);
+  ok(`Updated ${r.current} → ${r.now}.${await health() ? ' The service restarts by itself in a few seconds.' : ''}`);
+}
+
 async function secret() {
   const t = await import('../src/tools.js');
   const [sub, toolName, key] = args;
@@ -679,6 +701,7 @@ const HELP = `${bold('askq')} — your own assistant: Siri, WhatsApp or Telegram
   askq ask "question"         talk to it from the terminal
   askq link whatsapp|telegram [your-number]   link a chat channel (QR, or a code if you give your number)
   askq ai                     choose the AI that does the work (Claude Code, Codex, Cursor, Antigravity)
+  askq update [--check]       install the latest version (it also checks by itself every 12 hours)
   askq siri                   QR codes with what the Siri shortcut asks for (token and URL)
   askq token [--show|--qr|--rotate]           the key your Siri shortcut uses
 
@@ -723,6 +746,7 @@ try {
     case 'tools': if (args[0] === 'sync') { const { sync } = await import('../src/tools.js'); await sync(); } else throw new Error('Use: askq tools sync'); break;
     case 'secret': await secret(); break;
     case 'login': await login(); break;
+    case 'update': await update(); break;
     case 'uninstall': await uninstall(); break;
     case undefined: case 'help': case '--help': case '-h': console.log(HELP); break;
     default: throw new Error(`Unknown command "${cmd}". Run: askq help`);

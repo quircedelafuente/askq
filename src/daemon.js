@@ -8,7 +8,8 @@
 import http from 'node:http';
 import crypto from 'node:crypto';
 import { P, loadConfig, getToken, internalToken, sameSecret, readJSON, writePrivate, logger, ensureDirs } from './config.js';
-import { ask, resetSession, deliverEarly, markSent } from './agent.js';
+import { ask, resetSession, deliverEarly, markSent, busy } from './agent.js';
+import * as updates from './update.js';
 import { isNewConversation } from './confirm.js';
 import { createChat } from './chat/core.js';
 import * as webLogin from './web-login.js';
@@ -52,6 +53,35 @@ setInterval(async () => {
     catch (e) { log('REMINDER-FAIL', r.id, e.message); }
   }
 }, 30_000).unref();
+
+// ---------- updates ----------
+// Every 12 hours: look for a new version. Installed automatically when idle (unless "autoUpdate": false), then the
+// service restarts (systemd/launchd start it again) after any running turn has finished and its answer was sent.
+let restarting = false, offered = '';
+async function restartWhenIdle(why) {
+  if (restarting) return;
+  restarting = true;
+  while (busy()) await new Promise(r => setTimeout(r, 5000));
+  await new Promise(r => setTimeout(r, 5000));
+  log('RESTART', why);
+  process.exit(0);
+}
+async function autoUpdate() {
+  if (restarting) return;
+  const r = updates.check();
+  if (!r.ok || !r.behind) return log('UPDATE-CHECK', r.ok ? 'up to date' : r.why);
+  if (loadConfig().autoUpdate === false) {
+    if (offered !== r.changes[0]) { offered = r.changes[0]; notify(`⬆️ An Ask Q update is ready:\n${updates.describe(r.changes)}\nSay "update yourself" to install it.`).catch(() => {}); }
+    return;
+  }
+  if (busy()) return void setTimeout(autoUpdate, 10 * 60_000).unref();
+  const a = updates.apply();
+  log('UPDATE', a.updated ? `${a.current} → ${a.now}` : a.why);
+  if (a.updated && a.ok) { await notify(`⬆️ Ask Q updated itself:\n${updates.describe(a.changes)}`).catch(() => {}); restartWhenIdle('update'); }
+  else if (!a.ok) notify(`⚠️ Ask Q could not update itself: ${a.why}`).catch(() => {});
+}
+setTimeout(autoUpdate, 5 * 60_000).unref();
+setInterval(autoUpdate, 12 * 60 * 60_000).unref();
 
 // ---------- Siri ----------
 let last = { key: '', t: 0 };     // last phrase, to detect a shortcut stuck in a loop
@@ -153,6 +183,11 @@ const server = http.createServer(async (req, res) => {
         let sent = false;
         if (chat && j.send !== false) sent = await notify(`🔑 ${tool} needs ${j.keys.join(', ')}. Type it on this private page${WHERE[via]}, not here in the chat. It expires in 15 minutes.\n${link}`).then(() => true, () => false);
         return send(res, 200, { link, sent, via, expiresInMinutes: 15 }, 'application/json');
+      }
+      if (route === 'update') {
+        const r = j.install ? updates.apply() : updates.check();
+        if (r.updated && r.ok) restartWhenIdle('update requested');
+        return send(res, 200, { ...r, summary: r.changes?.length ? updates.describe(r.changes) : '' }, 'application/json');
       }
       if (route === 'reminders' && req.method === 'GET') return send(res, 200, readReminders().map(r => ({ id: r.id, when: r.when, text: r.text })), 'application/json');
       if (route === 'reminders') {

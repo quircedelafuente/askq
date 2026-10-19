@@ -36,6 +36,9 @@ through Cloudflare's servers, encrypted between your phone and Cloudflare. Tails
 someone shares with `askq tool add <link>`: it runs with your user's permissions, so only install tools from people you
 trust, and its functions are still subject to the "yes" rule according to how they're marked.
 
+**Updates come only from the official repository.** Every 12 hours Ask Q fast-forwards its own git clone to
+`github.com/quircedelafuente/askq` and tells you what changed. If you'd rather review first, set `"autoUpdate": false`.
+
 ## Limits you should know
 
 - **Other engines (Codex, Cursor, Antigravity)** apply the "yes" rule to tools through a proxy, but do not check shell

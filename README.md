@@ -75,6 +75,7 @@ askq tool new|add|list|test|remove   create, install (from a GitHub link) or man
 askq login <tool>             sign in to a tool's website from your phone
 askq secret set <tool> <KEY>  store a password or API key for a tool
 askq start|stop|restart|status|logs
+askq update                   install the latest version (it also checks by itself every 12 hours)
 askq uninstall                remove it from this machine (asks first)
 ```
 

@@ -43,6 +43,8 @@ function saveSession(channel, data) {
 export function resetSession(channel) { saveSession(channel, { id: null, asked: false, lastReply: '' }); }
 
 let queue = Promise.resolve();
+let pending = 0;       // turns queued or running
+export const busy = () => pending > 0;
 let early = null;     // callback that delivers an early "I'm on it" message for the running turn (tell_user_now)
 let turn = null;      // the running turn: { early, sent } — sent = it already sent the result to the phone after the early answer
 
@@ -51,7 +53,8 @@ let turn = null;      // the running turn: { early, sent } — sent = it already
 // The returned promise has .turn; if turn.sent is true when it resolves, the result already reached the phone.
 export function ask(text, { channel = 'cli', expires = null, onEarly = null } = {}) {
   const t = { early: false, sent: false };
-  const job = queue.then(() => { early = onEarly; turn = t; return run(text, channel, expires); }).finally(() => { early = null; if (turn === t) turn = null; });
+  pending++;
+  const job = queue.then(() => { early = onEarly; turn = t; return run(text, channel, expires); }).finally(() => { pending--; early = null; if (turn === t) turn = null; });
   queue = job.catch(() => {});
   job.turn = t;
   return job;

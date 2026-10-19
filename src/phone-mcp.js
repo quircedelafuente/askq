@@ -79,6 +79,22 @@ server.registerTool('ask_for_secret', {
   } catch (e) { return fail(e); }
 });
 
+// Read-only as far as the "yes" rule goes: it only touches Ask Q itself, and only when the user asks for it.
+server.registerTool('update_ask_q', {
+  description: 'Check for a new version of Ask Q, or install it, when the user asks ("update yourself", "are there updates?"). With install: true it downloads and installs the update; Ask Q restarts by itself right after this answer, so tell the user it will be back in a few seconds. Ask Q also checks every 12 hours on its own.',
+  inputSchema: { install: z.boolean().describe('false = only check; true = install if there is one') },
+  annotations: { readOnlyHint: true },
+}, async ({ install }) => {
+  try {
+    const r = await call('update', { install });
+    if (!r.ok) return text(`Could not ${install ? 'update' : 'check'}: ${r.why}`);
+    if (!r.behind) return text(`Ask Q is up to date (${r.current}).`);
+    return text(install && r.updated
+      ? `Updated ${r.current} → ${r.now}. What's new:\n${r.summary}\nAsk Q restarts in a few seconds, after this answer.`
+      : `An update is available (${r.behind} changes):\n${r.summary}`);
+  } catch (e) { return fail(e); }
+});
+
 server.registerTool('remind_me', {
   description: "Schedule a reminder that will be sent to the user's phone. `when` is local time 'YYYY-MM-DD HH:MM' in the user's timezone.",
   inputSchema: { when: z.string().regex(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/), text: z.string().min(1) },

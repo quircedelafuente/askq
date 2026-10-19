@@ -54,7 +54,9 @@ If you're already logged in to Claude Code on that machine, setup detects it and
 
 ## Update
 
-Run the installer again, or `git -C ~/.askq/app pull && askq restart`.
+Ask Q checks for a new version every 12 hours and installs it by itself when it's not busy, then tells you in the chat
+what changed. You can also ask in the chat ("update yourself") or run `askq update` (`--check` to only look).
+To be told instead of updating automatically, set `"autoUpdate": false` in `~/.askq/config.json`.
 
 ## Uninstall
 
