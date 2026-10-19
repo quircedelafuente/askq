@@ -5,8 +5,8 @@ When you install it, it asks for your Ask Q URL and token (import questions), so
 iOS only imports signed shortcuts: sign it on a Mac with
     shortcuts sign --mode anyone --input "shortcut/Ask Q.unsigned.shortcut" --output "shortcut/Ask Q.shortcut"
 
-How it works: Siri says the last answer and listens (Ask for Input) → POST {text} to your Ask Q → repeat while the
-answer is a question ("Should I book it?"); otherwise Show Result (Siri reads it) and Stop This Shortcut.
+How it works (the same loop as the author's own shortcut): Siri says the last answer and listens (Ask for Input) →
+POST {text} to your Ask Q → the answer becomes the next prompt. To finish, say "stop" or just don't answer.
 """
 import os
 import plistlib
@@ -37,7 +37,7 @@ def action(ident, **params):
     return {'WFWorkflowActionIdentifier': f'is.workflow.actions.{ident}', 'WFWorkflowActionParameters': params}
 
 TOKEN, HELLO, ASK, FETCH = uid(), uid(), uid(), uid()
-LOOP, IF = uid(), uid()
+LOOP = uid()
 answer = {'VariableName': 'Answer', 'Type': 'Variable'}
 
 actions = [
@@ -57,13 +57,6 @@ actions = [
                {'WFItemType': 0, 'WFKey': plain('text'), 'WFValue': tokens('￼', [out(ASK, 'Provided Input')])}]},
                'WFSerializationType': 'WFDictionaryFieldValue'}),
     action('setvariable', WFVariableName='Answer', WFInput=attachment(out(FETCH, 'Contents of URL'))),
-    # Not a question → Siri reads it and we're done (Answer as Text, or Shortcuts only offers "has any value")
-    action('conditional', GroupingIdentifier=IF, WFControlFlowMode=0, WFCondition=999, WFConditionalActionString='?',
-           WFInput={'Type': 'Variable', 'Variable': attachment({**answer, 'Aggrandizements': [
-               {'Type': 'WFCoercionVariableAggrandizement', 'CoercionItemClass': 'WFStringContentItem'}]})}),
-    action('showresult', Text=tokens('\ufffc', [answer])),
-    action('exit'),
-    action('conditional', GroupingIdentifier=IF, WFControlFlowMode=2),
     action('repeat.count', GroupingIdentifier=LOOP, WFControlFlowMode=2),
 ]
 

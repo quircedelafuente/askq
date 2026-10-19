@@ -17,8 +17,8 @@ Your iPhone must have the **Tailscale** app installed and connected to the same 
 2. It asks two questions: paste your **token** and your **URL**.
 3. Say **"Hey Siri, Ask Q"**. Siri says "I'm listening": ask your question.
 
-When Ask Q asks you something ("Should I book it?") Siri listens again, so you can just say "yes". When the answer is
-just information, Siri reads it and the shortcut ends.
+It's a conversation: Siri reads each answer and listens again, so you can follow up or just say "yes" when Ask Q asks
+"Should I book it?". When you're done, don't answer (or tap to close Siri).
 
 The shortcut is built from [`shortcut/build.py`](../shortcut/build.py), so you can see exactly what it does: it only
 sends what you say to your own URL.
