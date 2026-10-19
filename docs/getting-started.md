@@ -145,12 +145,9 @@ Ask, by voice or in the chat (the chat is more comfortable for this):
 
 > "Create a tool to see free classes and book them at my gym, gym-example.com"
 
-Ask Q builds and tests it (a couple of minutes). If the site needs your login, it tells you to store it on the
-machine — passwords never go through the chat:
-
-```bash
-askq secret set gym-example PASSWORD
-```
+Ask Q builds and tests it (a couple of minutes). If the site needs your login, it sends you a private link: you sign
+in on the real page, or type the password on a one-time form. Passwords never go through the chat. (At the machine you
+can also run `askq secret set gym-example PASSWORD`.)
 
 From your next message: *"Hey Siri, Ask Q: book the 7 pm spinning class tomorrow"* → *"Should I book it?"* → *"Yes."*
 

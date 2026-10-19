@@ -58,7 +58,7 @@ Just ask, from Siri, the chat or the terminal:
 
 > "Create a tool that checks the opening hours and books classes at my gym, gym-example.com"
 
-Ask Q follows a built-in recipe ([the `new-tool` skill](workspace/.claude/skills/new-tool/SKILL.md)): finds the cleanest way in (official API → the site's own JSON calls → driving the site with a headless browser), writes the tool in `~/.askq/tools/<name>`, marks which functions only read and which have real effects, tests it, and tells you if it needs a password — which you set yourself with `askq secret set <tool> KEY`, never in the chat.
+Ask Q follows a built-in recipe ([the `new-tool` skill](workspace/.claude/skills/new-tool/SKILL.md)): finds the cleanest way in (official API → the site's own JSON calls → driving the site with a headless browser), writes the tool in `~/.askq/tools/<name>`, marks which functions only read and which have real effects, tests it, and tells you if it needs a password — which you type on a one-time private page it sends you (or with `askq secret set <tool> KEY`), never in the chat.
 
 More: [docs/creating-tools.md](docs/creating-tools.md).
 

@@ -48,11 +48,11 @@ Rules (non-negotiable):
 - Function names are verbs in snake_case (`list_slots`, `book_slot`). Descriptions say what it does and what it returns.
 - Inputs use zod with `.describe()`. Dates as `YYYY-MM-DD`, times as `HH:MM`, in the user's timezone.
 - Secrets (passwords, API keys, cookies) ONLY through `secret('KEY')`. You never ask the user to paste a password in
-  the chat and you never write one to a file. Tell them to run on the server: `askq secret set <name> KEY`
-  (it prompts without echoing).
+  the chat and you never write one to a file. To get them: `askq-phone` → `ask_for_secret` with the tool name and the
+  keys (they type them on a private page from their phone). At the machine they can also run `askq secret set <name> KEY`.
 - Return short results. Files (tickets, PDFs, screenshots) go to `~/.askq/state/media/` and you return the path; then
   offer to send them with `askq-phone` → `send_to_phone`.
-- Errors: throw with a clear human message ("Login failed: check the password with askq secret set …").
+- Errors: throw with a clear human message ("Login failed: the password seems wrong; ask for it again with ask_for_secret").
 - Extra npm packages: `askq tool deps <name> <package…>` (never `npm install` inside the folder directly).
 
 ## 4. Check it

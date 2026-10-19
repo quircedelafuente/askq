@@ -62,6 +62,23 @@ server.registerTool('open_login_page', {
   } catch (e) { return fail(e); }
 });
 
+server.registerTool('ask_for_secret', {
+  description: "When a tool needs a password, API key or other secret that the user must give (read in the tool with secret('KEY')), call this instead of asking in the chat. The user gets a private one-time link to a form; what they type is saved straight into that tool's secrets and never reaches you or the chat. They get a message when it's saved; then test the tool. For websites with a normal sign-in page (SSO, 2-step codes), prefer open_login_page.",
+  inputSchema: {
+    tool: z.string().describe('Tool name (e.g. gym-booking)'),
+    keys: z.array(z.string()).min(1).max(8).describe('Secret names in CAPITALS, as the tool reads them (e.g. ["USERNAME", "PASSWORD"])'),
+    note: z.string().optional().describe('Short help shown on the form, e.g. where to find the API key'),
+  },
+  annotations: { readOnlyHint: true },
+}, async a => {
+  try {
+    const r = await call('secret', a);
+    return text(r.sent
+      ? `Done: the private link is in the user's chat (expires in ${r.expiresInMinutes} min). Tell them briefly to open it and type it there, not in the chat. Don't repeat the link.`
+      : `Give the user this private link to type it (expires in ${r.expiresInMinutes} min): ${r.link}`);
+  } catch (e) { return fail(e); }
+});
+
 server.registerTool('remind_me', {
   description: "Schedule a reminder that will be sent to the user's phone. `when` is local time 'YYYY-MM-DD HH:MM' in the user's timezone.",
   inputSchema: { when: z.string().regex(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/), text: z.string().min(1) },

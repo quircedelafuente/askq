@@ -77,10 +77,16 @@ If a tool drives a website that needs the user's login (Microsoft/Google SSO, 2-
 ```
 
 `askq login <tool>`, or asking Ask Q "log me in to <tool>", opens that page in a browser on the Ask Q machine and gives
-you a private link (through Tailscale; it expires in 15 minutes). On your phone you see the real page live and sign in
+you a private link (through Tailscale, or a temporary Cloudflare tunnel if you don't use it; it expires in 15 minutes). On your phone you see the real page live and sign in
 yourself: taps, typing and scrolling go to that browser. As soon as `check` answers 2xx (or the address matches
 `"done"`, a regex), the session — Playwright `storageState`, cookies and local storage — is saved to `state` inside the
 tool's folder (mode 600) and you get a message. The tool opens its browser with that file.
+
+## Passwords and API keys
+
+A tool reads them with `secret('KEY')`. To give them, either ask in the chat — Ask Q sends you a one-time link to a
+form, and what you type goes straight to `~/.askq/secrets/<tool>.json` without passing through the chat or the AI — or,
+at the machine, run `askq secret set <tool> KEY`.
 
 ## Sharing a tool
 

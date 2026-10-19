@@ -21,9 +21,16 @@ page can't approve anything. One "yes" covers one kind of action, and only the r
 processed by Claude (Anthropic) like any Claude Code session.
 
 **Website logins without passwords in the chat.** When a tool needs you to sign in (SSO, 2-step codes), Ask Q opens
-the site in a browser on your machine and sends you a one-time link, valid 15 minutes and reachable only through your
-tailnet. You type on the real page; the password goes to the website, not to the chat or the AI. Only the resulting
-session is saved, in that tool's folder (mode 600).
+the site in a browser on your machine and sends you a one-time link, valid 15 minutes. You type on the real page; the
+password goes to the website, not to the chat or the AI. Only the resulting session is saved, in that tool's folder
+(mode 600). Passwords and API keys a tool keeps work the same way: a one-time form whose answer goes straight to
+`~/.askq/secrets/<tool>.json`.
+
+**Those links without Tailscale.** With Tailscale they only open from your devices. Without it, Ask Q opens a temporary
+Cloudflare quick tunnel (`https://<random>.trycloudflare.com`, no account) to a separate local server that serves only
+those one-time pages — never `/ask` or the internal API — and closes it 15 minutes after the last link. Anyone with the
+link could open it while it's valid (it's a long random address, sent only to your chat), and the traffic passes
+through Cloudflare's servers, encrypted between your phone and Cloudflare. Tailscale avoids both.
 
 **No third-party tool store.** Tools are created by you (or by Ask Q for you) on your machine. You can install a tool
 someone shares with `askq tool add <link>`: it runs with your user's permissions, so only install tools from people you

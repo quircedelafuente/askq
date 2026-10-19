@@ -3,7 +3,8 @@
 //    Listens on 127.0.0.1 only; Tailscale (`tailscale serve`) is the only way in from your phone.
 //  · Chat channel (WhatsApp or Telegram): you chat with Ask Q, and it can send you files and reminders.
 //  · Internal API for the askq-phone tool and the guard (127.0.0.1, internal token).
-//  · /login/<id>: sign in to a tool's website from your phone (src/web-login.js).
+//  · One-time pages for your phone: /login/<id> (sign in to a tool's website, src/web-login.js) and /secret/<id>
+//    (type a tool's password or API key, src/secret-page.js). Without Tailscale they go through a temporary tunnel (links.js).
 import http from 'node:http';
 import crypto from 'node:crypto';
 import { P, loadConfig, getToken, internalToken, sameSecret, readJSON, writePrivate, logger, ensureDirs } from './config.js';
@@ -11,6 +12,8 @@ import { ask, resetSession, deliverEarly, markSent } from './agent.js';
 import { isNewConversation } from './confirm.js';
 import { createChat } from './chat/core.js';
 import * as webLogin from './web-login.js';
+import * as secretPage from './secret-page.js';
+import * as links from './links.js';
 
 const log = logger('service');
 const cfg = loadConfig();
@@ -100,6 +103,9 @@ async function siri(text) {
 }
 
 // ---------- HTTP ----------
+// One-time pages; also served by the temporary tunnel's own server when there is no Tailscale (links.js).
+const servePage = async (req, res, url) => await webLogin.handle(req, res, url, body) || await secretPage.handle(req, res, url, body);
+const WHERE = { tailscale: ' (with Tailscale on)', tunnel: '', local: ' (this link only works on the Ask Q machine itself)' };
 const send = (res, code, body, type = 'text/plain; charset=utf-8') => { res.writeHead(code, { 'Content-Type': type }); res.end(typeof body === 'string' ? body : JSON.stringify(body)); };
 async function body(req, max = 20_000) {
   let b = '';
@@ -131,11 +137,22 @@ const server = http.createServer(async (req, res) => {
         let id;
         try { ({ id } = await webLogin.startLogin(tool, { onEnd: st => st === 'saved' && notify(`✅ Signed in to ${tool}. You can use it now.`).catch(() => {}) })); }
         catch (e) { log('LOGIN-FAIL', tool, e.message); return send(res, 400, { error: e.message }, 'application/json'); }
-        const c = loadConfig(), origin = c.url ? new URL(c.url).origin : `http://127.0.0.1:${c.port}`;
+        const { origin, via } = await links.origin(servePage);
         const link = `${origin}/login/${id}`;
         let sent = false;
-        if (chat && j.send !== false) sent = await notify(`🔐 Sign in to ${tool}: open this link on your phone${c.url ? ' (with Tailscale on)' : ' (it only works on this machine)'} and sign in on the real page. It expires in 15 minutes.\n${link}`).then(() => true, () => false);
-        return send(res, 200, { link, sent, expiresInMinutes: 15 }, 'application/json');
+        if (chat && j.send !== false) sent = await notify(`🔐 Sign in to ${tool}: open this link on your phone${WHERE[via]} and sign in on the real page. It expires in 15 minutes.\n${link}`).then(() => true, () => false);
+        return send(res, 200, { link, sent, via, expiresInMinutes: 15 }, 'application/json');
+      }
+      if (route === 'secret') {
+        const tool = String(j.tool || '');
+        let id;
+        try { ({ id } = secretPage.startSecret(tool, j.keys, { note: j.note, onEnd: (st, keys) => st === 'saved' && notify(`✅ Saved ${keys.join(', ')} for ${tool}.`).catch(() => {}) })); }
+        catch (e) { return send(res, 400, { error: e.message }, 'application/json'); }
+        const { origin, via } = await links.origin(servePage);
+        const link = `${origin}/secret/${id}`;
+        let sent = false;
+        if (chat && j.send !== false) sent = await notify(`🔑 ${tool} needs ${j.keys.join(', ')}. Type it on this private page${WHERE[via]}, not here in the chat. It expires in 15 minutes.\n${link}`).then(() => true, () => false);
+        return send(res, 200, { link, sent, via, expiresInMinutes: 15 }, 'application/json');
       }
       if (route === 'reminders' && req.method === 'GET') return send(res, 200, readReminders().map(r => ({ id: r.id, when: r.when, text: r.text })), 'application/json');
       if (route === 'reminders') {
@@ -166,7 +183,7 @@ const server = http.createServer(async (req, res) => {
       log('SIRI', JSON.stringify(text.slice(0, 200)));
       return send(res, 200, clean(await siri(text)));
     }
-    if (url.pathname.startsWith('/login/') && await webLogin.handle(req, res, url, body)) return;
+    if (await servePage(req, res, url)) return;
     send(res, 404, 'not found');
   } catch (e) {
     log('HTTP-ERROR', e.message);
