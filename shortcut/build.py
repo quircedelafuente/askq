@@ -6,7 +6,7 @@ iOS only imports signed shortcuts: sign it on a Mac with
     shortcuts sign --mode anyone --input "shortcut/Ask Q.unsigned.shortcut" --output "shortcut/Ask Q.shortcut"
 
 How it works: Siri says the last answer and listens (Ask for Input) → POST {text} to your Ask Q → repeat while the
-answer is a question ("Should I book it?"); otherwise Siri reads it and the shortcut ends.
+answer is a question ("Should I book it?"); otherwise Show Result (Siri reads it) and Stop This Shortcut.
 """
 import os
 import plistlib
@@ -60,7 +60,8 @@ actions = [
     # Not a question → Siri reads it and we're done
     action('conditional', GroupingIdentifier=IF, WFControlFlowMode=0, WFCondition=999, WFConditionalActionString='?',
            WFInput={'Type': 'Variable', 'Variable': attachment(answer)}),
-    action('output', WFOutput=tokens('￼', [answer]), WFNoOutputSurfaceBehavior='Respond'),
+    action('showresult', Text=tokens('\ufffc', [answer])),
+    action('exit'),
     action('conditional', GroupingIdentifier=IF, WFControlFlowMode=2),
     action('repeat.count', GroupingIdentifier=LOOP, WFControlFlowMode=2),
 ]
