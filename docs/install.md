@@ -59,6 +59,6 @@ Run the installer again, or `git -C ~/.askq/app pull && askq restart`.
 ## Uninstall
 
 ```bash
-askq uninstall          # removes the background service
-rm -rf ~/.askq          # removes everything (tools, secrets, logs)
+askq uninstall              # lists what it removes and asks first: service, Tailscale address, ~/.askq, the command
+askq uninstall --keep-data  # only stops and removes the background service
 ```

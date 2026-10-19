@@ -416,6 +416,40 @@ async function ai() {
   if (svc.installed()) { svc.install(); ok(`Ask Q now uses ${ENGINES[cfg.engine].label}. Conversations start fresh.`); }
 }
 
+// `askq uninstall`: removes Ask Q from this machine after a "yes". --keep-data only removes the background service.
+async function uninstall() {
+  const svc = await import('../src/service.js');
+  if (args.includes('--keep-data')) { svc.uninstall(); return ok(`Service removed. Your data is still in ${HOME}.`); }
+  if (path.resolve(HOME) === os.homedir() || path.resolve(HOME) === '/') throw new Error(`Refusing to delete ${HOME}`);
+  const cfg = loadConfig(), ts = tailscaleBin();
+  const httpsPort = (() => { try { return new URL(cfg.url).port || '443'; } catch { return null; } })();
+  const serving = ts && httpsPort && spawnSync(ts, ['serve', 'status'], { encoding: 'utf8' }).stdout?.includes(`127.0.0.1:${cfg.port}`);
+  const link = path.join(os.homedir(), '.local', 'bin', 'askq');
+  const ownLink = (() => { try { return fs.realpathSync(link) === fs.realpathSync(path.join(APP, 'bin', 'askq.js')); } catch { return false; } })();
+  const appInside = !path.relative(HOME, APP).startsWith('..');
+  const agy = path.join(os.homedir(), '.gemini', 'config', 'mcp_config.json');
+  const agyOurs = Object.keys(readJSON(agy, { mcpServers: {} }).mcpServers || {}).filter(k => k.startsWith('askq-'));
+
+  console.log(bold('This removes Ask Q from this machine:'));
+  info('• the background service');
+  if (serving) info(`• the Tailscale address (${cfg.url || `https port ${httpsPort}`})`);
+  info(`• ${HOME}: settings, token, tools and their passwords, WhatsApp link, conversations, logs${appInside ? ', the program' : ''}`);
+  if (ownLink) info(`• the askq command (${link})`);
+  if (agyOurs.length) info(`• Ask Q's tools in ${agy} (${agyOurs.length})`);
+  info(dim(`Not touched: Claude Code, Node, Tailscale${appInside ? '' : `, the program in ${APP}`}.`));
+  if (!await askYes('Uninstall Ask Q?', false)) return console.log('Nothing removed.');
+
+  svc.uninstall(); ok('Background service removed');
+  if (serving) { const r = spawnSync(ts, ['serve', `--https=${httpsPort}`, 'off'], { encoding: 'utf8' }); r.status === 0 ? ok('Tailscale address removed') : bad(`Tailscale: ${(r.stderr || '').trim()} (run: tailscale serve reset)`); }
+  if (agyOurs.length) { const j = readJSON(agy, { mcpServers: {} }); for (const k of agyOurs) delete j.mcpServers[k]; writePrivate(agy, JSON.stringify(j, null, 2) + '\n'); ok('Antigravity config cleaned'); }
+  if (ownLink) fs.rmSync(link, { force: true });
+  fs.rmSync(HOME, { recursive: true, force: true }); ok(`Deleted ${HOME}`);
+  console.log(`\nAsk Q is uninstalled. On your phone, also:`);
+  if (cfg.channel === 'whatsapp') info('• WhatsApp → Settings → Linked devices → tap Ask Q\'s device → Log out (and delete the "Ask Q" group if you like)');
+  if (cfg.channel === 'telegram') info('• Telegram: delete your bot with @BotFather → /deletebot');
+  info('• Shortcuts: delete the "Ask Q" shortcut');
+}
+
 async function doctor() {
   const cfg = loadConfig();
   const v = +process.versions.node.split('.')[0];
@@ -504,7 +538,7 @@ const HELP = `${bold('askq')} — your own assistant: Siri, WhatsApp or Telegram
   askq secret set <tool> <KEY>                store a password or API key for a tool (hidden input)
 
   askq run                    run in the foreground (what the background service runs)
-  askq uninstall              remove the background service (keeps ${HOME})
+  askq uninstall [--keep-data]  remove Ask Q from this machine (asks first; --keep-data: only the service)
 `;
 
 try {
@@ -536,7 +570,7 @@ try {
     case 'tool': await tool(); break;
     case 'tools': if (args[0] === 'sync') { const { sync } = await import('../src/tools.js'); await sync(); } else throw new Error('Use: askq tools sync'); break;
     case 'secret': await secret(); break;
-    case 'uninstall': { const svc = await import('../src/service.js'); svc.uninstall(); ok(`Service removed. Your data is still in ${HOME}.`); break; }
+    case 'uninstall': await uninstall(); break;
     case undefined: case 'help': case '--help': case '-h': console.log(HELP); break;
     default: throw new Error(`Unknown command "${cmd}". Run: askq help`);
   }

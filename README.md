@@ -74,6 +74,7 @@ askq siri                     QR codes with what the Siri shortcut asks for
 askq tool new|list|test|remove
 askq secret set <tool> <KEY>  store a password or API key for a tool
 askq start|stop|restart|status|logs
+askq uninstall                remove it from this machine (asks first)
 ```
 
 ## Docs
