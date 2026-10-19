@@ -22,7 +22,8 @@ async function socket() {
   fs.mkdirSync(P.whatsappAuth, { recursive: true, mode: 0o700 });
   const { state, saveCreds } = await useMultiFileAuthState(P.whatsappAuth);
   const { version } = await fetchLatestBaileysVersion().catch(() => ({ version: undefined }));
-  const sock = makeWASocket({ version, auth: state, logger: quiet, browser: Browsers.macOS('Desktop'), markOnlineOnConnect: false, syncFullHistory: false });
+  // Since Oct 2026 WhatsApp refuses new links that claim to be the Desktop app (428 before any QR); Chrome works.
+  const sock = makeWASocket({ version, auth: state, logger: quiet, browser: Browsers.macOS('Chrome'), markOnlineOnConnect: false, syncFullHistory: false });
   sock.ev.on('creds.update', saveCreds);
   return sock;
 }
