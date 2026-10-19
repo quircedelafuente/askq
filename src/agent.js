@@ -10,6 +10,7 @@ import { asksForYes, isYes } from './confirm.js';
 
 const log = logger('agent');
 const MAX_MINUTES = 15;
+const TURN = path.join(P.state, 'turn.json');
 
 // Built-in Claude Code tools the assistant may use without asking (nobody is in front of a screen to approve).
 // Actions with real effects are still stopped by the guard hook until you say "yes".
@@ -80,8 +81,11 @@ function run(text, channel, expires) {
     '--allowedTools', ...allowedTools()];
   if (resume) args.push('--resume', resume);
 
+  const turnId = crypto.randomUUID(), question = yes ? (sess.lastReply || '') : '';
   const env = { ...process.env, ...claudeEnv(), PATH: `${path.join(P.state, 'bin')}${path.delimiter}${process.env.PATH}`, ASKQ: '1', ASKQ_HOME: path.dirname(P.config), ASKQ_CHANNEL: channel,
-    ASKQ_YES: yes ? '1' : '0', ASKQ_TURN: crypto.randomUUID(), ASKQ_QUESTION: yes ? (sess.lastReply || '') : '' };
+    ASKQ_YES: yes ? '1' : '0', ASKQ_TURN: turnId, ASKQ_QUESTION: question };
+  // Also on disk, for the tool proxy of engines whose MCP servers don't get our environment (src/mcp-proxy.mjs)
+  writePrivate(TURN, JSON.stringify({ turn: turnId, yes, question, channel, until: Date.now() + MAX_MINUTES * 60_000 }));
   if (yes) log('YES', channel, JSON.stringify(text));
 
   return new Promise(resolve => {
@@ -93,6 +97,7 @@ function run(text, channel, expires) {
     const killer = setTimeout(() => p.kill('SIGTERM'), MAX_MINUTES * 60_000);
     p.on('close', code => {
       clearTimeout(killer);
+      fs.rmSync(TURN, { force: true });
       let reply;
       try {
         const j = JSON.parse(out);
