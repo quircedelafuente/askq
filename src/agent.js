@@ -42,18 +42,25 @@ export function resetSession(channel) { saveSession(channel, { id: null, asked: 
 
 let queue = Promise.resolve();
 let early = null;     // callback that delivers an early "I'm on it" message for the running turn (tell_user_now)
+let turn = null;      // the running turn: { early, sent } — sent = it already sent the result to the phone after the early answer
 
 // text: what the user said · channel: siri|whatsapp|telegram|cli · expires: minutes after which a new conversation starts
 // onEarly(text): called if the assistant sends an early message with tell_user_now while it keeps working.
+// The returned promise has .turn; if turn.sent is true when it resolves, the result already reached the phone.
 export function ask(text, { channel = 'cli', expires = null, onEarly = null } = {}) {
-  const job = queue.then(() => { early = onEarly; return run(text, channel, expires); }).finally(() => { early = null; });
+  const t = { early: false, sent: false };
+  const job = queue.then(() => { early = onEarly; turn = t; return run(text, channel, expires); }).finally(() => { early = null; if (turn === t) turn = null; });
   queue = job.catch(() => {});
+  job.turn = t;
   return job;
 }
+// Called when send_to_phone delivers something during the running turn.
+export function markSent() { if (turn?.early) turn.sent = true; }
 // Delivers an early message to whoever is waiting for the running turn. Returns false if nobody is.
 export function deliverEarly(text) {
   if (!early || !text) return false;
   const f = early; early = null;
+  if (turn) turn.early = true;
   f(text);
   return true;
 }

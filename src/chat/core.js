@@ -42,8 +42,10 @@ export async function createChat(cfg) {
     log('IN', name, JSON.stringify(text.slice(0, 200)));
     if (isNewConversation(text)) { resetSession(name); return reply('Okay, starting over.'); }
     const slow = setTimeout(() => reply('On it…'), SLOW_S * 1000);
-    const answer = await ask(text, { channel: name, onEarly: t => { clearTimeout(slow); reply(t); } });
+    const job = ask(text, { channel: name, onEarly: t => { clearTimeout(slow); reply(t); } });
+    const answer = await job;
     clearTimeout(slow);
+    if (job.turn.sent) return log('FINAL-SKIPPED', 'already sent');   // the result is already in the chat
     await reply(answer);
   }
 

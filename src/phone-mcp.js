@@ -44,7 +44,7 @@ server.registerTool('tell_user_now', {
   try {
     const r = await call('early', { text: t });
     return text(r.delivered
-      ? 'Delivered: the user already got your message. Keep working; your final answer will be sent to them when you finish, so write it as a short message with the key details.'
+      ? 'Delivered: the user already got your message. Keep working; your final answer will be sent to them when you finish, so write it as a short message with the key details. If you send the result yourself with send_to_phone, that is all they will get: the final answer is not sent again.'
       : 'Not needed now (the user already got an answer). Just finish the task normally.');
   } catch (e) { return fail(e); }
 });

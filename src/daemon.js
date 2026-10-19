@@ -6,7 +6,7 @@
 import http from 'node:http';
 import crypto from 'node:crypto';
 import { P, loadConfig, getToken, internalToken, sameSecret, readJSON, writePrivate, logger, ensureDirs } from './config.js';
-import { ask, resetSession, deliverEarly } from './agent.js';
+import { ask, resetSession, deliverEarly, markSent } from './agent.js';
 import { isNewConversation } from './confirm.js';
 import { createChat } from './chat/core.js';
 
@@ -88,7 +88,8 @@ async function siri(text) {
   answered = true;
   if (first?.early) {
     pending = null;
-    job.then(final => notify(final)).catch(e => { log('FINAL-FAIL', e.message); pending = job; });
+    // If it already sent the result with send_to_phone, the final summary would be a duplicate
+    job.then(final => job.turn.sent ? log('FINAL-SKIPPED', 'already sent') : notify(final)).catch(e => { log('FINAL-FAIL', e.message); pending = job; });
     return first.early;
   }
   if (!first) { pending = job; return onIt(text); }
@@ -119,6 +120,7 @@ const server = http.createServer(async (req, res) => {
       if (route === 'notify') { await notify(String(j.text || '')).catch(e => log('NOTIFY-FAIL', e.message)); return send(res, 200, { ok: true }, 'application/json'); }
       if (route === 'send') {
         try { await notify(j.text || '', j.files || []); } catch (e) { log('SEND-FAIL', e.message); return send(res, 503, { error: e.message }, 'application/json'); }
+        markSent();
         log('SENT', (j.files || []).length, 'files');
         return send(res, 200, { sent: true, channel: cfg.channel }, 'application/json');
       }
