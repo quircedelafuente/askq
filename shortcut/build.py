@@ -57,9 +57,10 @@ actions = [
                {'WFItemType': 0, 'WFKey': plain('text'), 'WFValue': tokens('￼', [out(ASK, 'Provided Input')])}]},
                'WFSerializationType': 'WFDictionaryFieldValue'}),
     action('setvariable', WFVariableName='Answer', WFInput=attachment(out(FETCH, 'Contents of URL'))),
-    # Not a question → Siri reads it and we're done
+    # Not a question → Siri reads it and we're done (Answer as Text, or Shortcuts only offers "has any value")
     action('conditional', GroupingIdentifier=IF, WFControlFlowMode=0, WFCondition=999, WFConditionalActionString='?',
-           WFInput={'Type': 'Variable', 'Variable': attachment(answer)}),
+           WFInput={'Type': 'Variable', 'Variable': attachment({**answer, 'Aggrandizements': [
+               {'Type': 'WFCoercionVariableAggrandizement', 'CoercionItemClass': 'WFStringContentItem'}]})}),
     action('showresult', Text=tokens('\ufffc', [answer])),
     action('exit'),
     action('conditional', GroupingIdentifier=IF, WFControlFlowMode=2),
