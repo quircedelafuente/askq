@@ -30,7 +30,7 @@ keep it plugged in). A bonus on Mac: tools can use your Mac apps through AppleSc
 Run the installer. It uses a systemd user service; to keep it running when you're logged out it enables "linger"
 (it tells you if it needs `sudo loginctl enable-linger $USER`).
 
-## Windows
+## Windows (experimental)
 
 Open PowerShell **as Administrator** and run:
 

@@ -38,7 +38,7 @@ WhatsApp / Telegram ─┼─►  your machine (private, via Tailscale)  ─► 
 curl -fsSL https://raw.githubusercontent.com/quircedelafuente/askq/main/install.sh | bash
 ```
 
-**Windows** (PowerShell as Administrator; it sets up WSL2):
+**Windows** (experimental; PowerShell as Administrator; it sets up WSL2):
 
 ```powershell
 irm https://raw.githubusercontent.com/quircedelafuente/askq/main/install.ps1 | iex
