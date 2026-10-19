@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Ask Q installer for Linux, macOS and Windows (inside WSL2).
 #   curl -fsSL https://raw.githubusercontent.com/quircedelafuente/askq/main/install.sh | bash
-# Installs what is missing (git, Node.js 20+, Claude Code, Tailscale), puts Ask Q in ~/.askq/app, adds the `askq`
-# command and starts `askq setup`. It asks before using sudo. Re-running it updates Ask Q.
+# Installs what is missing (git, Node.js 20+, Claude Code), puts Ask Q in ~/.askq/app, adds the `askq` command and
+# starts `askq setup` (which offers Tailscale). It asks before using sudo. Re-running it updates Ask Q.
 set -euo pipefail
 
 REPO="${ASKQ_REPO:-https://github.com/quircedelafuente/askq.git}"
@@ -59,25 +59,6 @@ fi
 # Optional extras for voice notes in the chat
 if [ "$PLATFORM" != mac ] && ! have ffmpeg && confirm "Install ffmpeg and python3-venv (needed if you want voice notes in WhatsApp/Telegram)?"; then
   apt_install ffmpeg python3-venv
-fi
-
-# Tailscale (private access from your phone; nothing is opened to the internet)
-if [ -n "${ASKQ_SKIP_TAILSCALE:-}" ]; then :
-elif ! have tailscale && [ ! -x /Applications/Tailscale.app/Contents/MacOS/Tailscale ]; then
-  step "Tailscale"
-  if [ "$PLATFORM" = mac ]; then
-    echo "Install the Tailscale app from https://tailscale.com/download/mac (or: brew install --cask tailscale) and log in."
-  elif confirm "Install Tailscale (uses sudo)?"; then
-    curl -fsSL https://tailscale.com/install.sh | sh
-  fi
-fi
-if [ -z "${ASKQ_SKIP_TAILSCALE:-}" ] && have tailscale && [ "$PLATFORM" != mac ]; then
-  if ! tailscale status >/dev/null 2>&1; then
-    step "Log in to Tailscale (use the same account as on your phone)"
-    $SUDO tailscale up
-  fi
-  # let Ask Q configure `tailscale serve` without sudo
-  $SUDO tailscale set --operator="$USER" >/dev/null 2>&1 || true
 fi
 
 # Keep Ask Q running after you log out (servers): systemd "linger"

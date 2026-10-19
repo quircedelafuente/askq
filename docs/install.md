@@ -21,7 +21,7 @@ Any VPS works the same way (Hetzner, DigitalOcean…), and so does a Raspberry P
 
 ## Your Mac
 
-Run the installer in Terminal. Install the Tailscale app from https://tailscale.com/download/mac first.
+Run the installer in Terminal. Setup offers Tailscale and walks you through installing the app (with Homebrew if you have it).
 Keep the Mac awake: System Settings → Energy → "Prevent automatic sleeping when the display is off" (on a laptop,
 keep it plugged in). A bonus on Mac: tools can use your Mac apps through AppleScript and Shortcuts.
 

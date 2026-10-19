@@ -8,7 +8,7 @@ You'll create or use these accounts:
 | Account | What for | Cost |
 |---|---|---|
 | **Claude** (claude.ai) | The brain of your assistant | Pro or Max subscription, or pay-per-use API |
-| **Tailscale** | A private connection between your phone and your Ask Q machine | Free (Personal plan) |
+| **Tailscale** *(recommended)* | A private connection between your phone and your Ask Q machine; needed for the Siri shortcut | Free (Personal plan) |
 | **Oracle Cloud** *(optional)* | A free server that's always on | Free (Always Free) |
 | **Telegram** *(optional)* | Chat with Ask Q, if you don't use WhatsApp | Free |
 
@@ -54,10 +54,11 @@ System Settings → Energy → turn on **Prevent automatic sleeping when the dis
 Open **PowerShell as Administrator** (Start → type "PowerShell" → right click → *Run as administrator*) and use the
 Windows command in Step 4. *Windows support is experimental.*
 
-## Step 3 — Tailscale on your phone
+## Step 3 — Tailscale on your phone (recommended)
 
 Tailscale creates a private network that only your devices can join. It's how your iPhone reaches Ask Q without
-opening anything to the internet.
+opening anything to the internet. Setup asks about it (Step 4) and shows these same steps if you haven't done them;
+you can also skip it and use Ask Q through the chat only (no Siri shortcut).
 
 1. On your iPhone, install **Tailscale** from the App Store.
 2. Open it → **Get Started** → sign in with **Google, Apple, Microsoft or GitHub**. This creates your free
@@ -81,10 +82,7 @@ irm https://raw.githubusercontent.com/quircedelafuente/askq/main/install.ps1 | i
 It may ask for your password (that's `sudo`, for installing software) and to confirm a few things — press **Enter**
 to accept. Then:
 
-1. **Tailscale login.** It prints a link like `https://login.tailscale.com/a/1a2b3c…`. Open it on your phone or
-   computer and sign in with **the same account as in Step 3**. The machine now appears in your Tailscale app.
-   *(On a Mac, install the Tailscale app from https://tailscale.com/download/mac and sign in there instead.)*
-2. **Setup questions.** `askq setup` starts (press **Esc** at any question to save what you answered and stop;
+1. **Setup questions.** `askq setup` starts (press **Esc** at any question to save what you answered and stop;
    run `askq setup` again to continue):
    - **Name, language, timezone** — type them or press Enter.
    - **The AI** — press Enter for Claude Code (recommended). Prefer ChatGPT, Cursor or Google? Pick Codex, Cursor or
@@ -96,9 +94,14 @@ to accept. Then:
    - **Chat channel** — see Step 5.
    - **Voice notes** — say yes if you want to send voice messages in the chat.
    - **Background service** — press Enter.
-   - **Tailscale HTTPS** — the first time, Tailscale asks you to turn on HTTPS for your private network. Setup shows a
-     link and a QR: open it (or scan it with your phone), sign in and approve. Setup waits and continues by itself.
-3. At the end it shows **two QR codes**: your token and your URL. Keep that window open for Step 6
+   - **Tailscale** — choose **Yes** (recommended) or **Continue without Tailscale**. With Yes, it asks whether you
+     already have it and walks you through what's missing:
+     - on a server, it installs Tailscale and shows a sign-in link and QR: sign in with **the same account as in Step 3**;
+     - on a Mac, it installs the app (with Homebrew, or opens the download), opens it, and waits while you click the
+       Tailscale icon in the menu bar → **Log in** with the same account;
+     - the first time, Tailscale asks you to turn on HTTPS for your private network: open the link (or scan the QR),
+       approve, and setup continues by itself.
+2. At the end it shows **two QR codes**: your token and your URL. Keep that window open for Step 6
    (or show them again later with `askq siri`).
 
 ## Step 5 — WhatsApp or Telegram
@@ -122,7 +125,7 @@ any phone, link it the same way, and save the number in your contacts as "Ask Q"
 2. BotFather replies with a **token** (`123456:ABC…`). Paste it when setup asks.
 3. Setup shows a message like `/start 482913`. Send exactly that to your new bot. Done.
 
-## Step 6 — The Siri shortcut
+## Step 6 — The Siri shortcut (with Tailscale)
 
 1. On your iPhone, make sure **Tailscale is connected** (Step 3).
 2. Open **[the Ask Q shortcut](https://www.icloud.com/shortcuts/bb7e05a8316a4b3ab19bba51307ba3f8)** on the iPhone → **Add Shortcut**.

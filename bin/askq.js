@@ -248,6 +248,142 @@ async function tailscaleServe(port, httpsPort) {
   return { ok: true, url: `https://${host}${httpsPort === 443 ? '' : `:${httpsPort}`}/ask` };
 }
 
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const APP_STORE = 'https://apps.apple.com/app/tailscale/id1470499037';
+const qrText = async t => (await import('qrcode')).default.toString(t, { type: 'terminal', small: true });
+// "Running" when this machine is signed in to Tailscale; "missing" when it isn't installed.
+function tsState() {
+  const ts = tailscaleBin();
+  if (!ts) return 'missing';
+  try { return JSON.parse(execFileSync(ts, ['status', '--json'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })).BackendState || 'Unknown'; }
+  catch { return 'Stopped'; }
+}
+// Checks `ready()` every 2 s until it is true or time runs out. Esc stops waiting, like at a question.
+async function waitFor(ready, what, ms = 30 * 60_000) {
+  io();
+  let esc = false;
+  pending = () => { pending = null; esc = true; };
+  console.log(dim(`  Waiting for ${what}… (Esc to stop setup)`));
+  try {
+    for (const end = Date.now() + ms; Date.now() < end; await sleep(2000)) {
+      if (esc) throw new Esc();
+      if (ready()) return true;
+    }
+    return false;
+  } finally { if (!esc) pending = null; }
+}
+
+function noSiri() {
+  console.log(`\n${bold('Siri shortcut')}`);
+  info('Off: the Siri shortcut needs Tailscale. Chat with Ask Q in WhatsApp or Telegram instead');
+  info('(with WhatsApp on its own number you can also say "Hey Siri, send a WhatsApp to Ask Q").');
+  info(`To turn on the Siri shortcut later: ${bold('askq setup')} → Tailscale → Yes.`);
+}
+
+// Step 6: Tailscale is optional. With it, the Siri shortcut reaches this machine through a private network; without it,
+// nothing listens beyond this machine and Ask Q works through the chat only.
+async function setupTailscale(cfg, save) {
+  console.log(`\n${bold('6. Siri from your iPhone (Tailscale)')}`);
+  info('Tailscale is a free private network between your own devices. The Siri shortcut uses it to reach this machine.');
+  info(`${bold('Recommended:')} Ask Q stays invisible from the internet. Only your devices, signed in to your Tailscale account,`);
+  info('can reach it: nothing is opened to the outside, and strangers can\'t even see it is there.');
+  info('Without it, the Siri shortcut won\'t work; you\'d use Ask Q through the chat only. You can add it later.');
+  const use = await choose('Use Tailscale?', [
+    { label: 'Yes, use Tailscale', hint: 'recommended · free · about 5 minutes', value: true },
+    { label: 'Continue without Tailscale', hint: 'chat only, no Siri shortcut', value: false },
+  ], cfg.tailscale === false ? 1 : 0);
+  cfg.tailscale = use; save();
+  if (!use) {
+    const ts = tailscaleBin(), url = loadConfig().url;
+    if (ts && url && spawnSync(ts, ['serve', 'status'], { encoding: 'utf8' }).stdout?.includes(`127.0.0.1:${cfg.port}`)) {
+      spawnSync(ts, ['serve', `--https=${new URL(url).port || 443}`, 'off']);
+      ok('Ask Q is no longer published on Tailscale.');
+    }
+    const c = loadConfig(); c.url = null; saveConfig(c);
+    return null;
+  }
+
+  const have = await choose('Do you already have Tailscale?', [
+    { label: 'Yes, on my iPhone and on this machine', value: 'both' },
+    { label: 'Only on my iPhone', value: 'phone' },
+    { label: 'No, not yet', value: 'none' },
+  ], tsState() === 'Running' ? 0 : 2);
+
+  if (have === 'none') {
+    console.log(`\n  ${bold('On your iPhone')}`);
+    info('1. Open the App Store, search "Tailscale" and install it (or scan this QR with the camera):');
+    console.log(await qrText(APP_STORE));
+    info('2. Open Tailscale → Get Started → sign in with Google, Apple, Microsoft or GitHub.');
+    info(`   ${bold('Remember which one:')} this machine must sign in with the same account.`);
+    info('3. Allow the VPN configuration when iOS asks. Leave Tailscale connected (you\'ll see "VPN" at the top).');
+    await question('  Press Enter when Tailscale is connected on your iPhone… ');
+  }
+
+  // This machine
+  let state = tsState();
+  if (have === 'both' && state !== 'Running') bad(state === 'missing' ? 'Tailscale is not installed on this machine yet.' : `Tailscale on this machine is not signed in (${state}).`);
+  if (state === 'missing') {
+    console.log(`\n  ${bold('On this machine')}`);
+    if (isMac) {
+      if (which('brew') && await askYes('Install the Tailscale app with Homebrew now? (it may ask for your Mac password)')) {
+        close(); spawnSync('brew', ['install', '--cask', 'tailscale'], { stdio: 'inherit' });
+      }
+      if (!tailscaleBin()) {
+        info('1. Download Tailscale for Mac: https://tailscale.com/download/mac (opening it in your browser).');
+        info('2. Open the downloaded file and install it (Continue → Install), or get it from the Mac App Store.');
+        spawnSync('open', ['https://tailscale.com/download/mac']);
+        if (!await waitFor(() => !!tailscaleBin(), 'the Tailscale app to be installed')) { bad('Tailscale is not installed yet.'); return later(); }
+      }
+      ok('Tailscale is installed.');
+    } else {
+      if (!await askYes('Install Tailscale now? (uses sudo; it may ask for your password)')) return later();
+      close(); spawnSync('bash', ['-c', 'curl -fsSL https://tailscale.com/install.sh | sh'], { stdio: 'inherit' });
+      if (!tailscaleBin()) { bad('Tailscale did not install.'); return later(); }
+      ok('Tailscale is installed.');
+    }
+    state = tsState();
+  }
+  if (state !== 'Running') {
+    console.log(`\n  ${bold('Sign this machine in to Tailscale')} ${dim('(same account as your iPhone)')}`);
+    if (isMac) {
+      spawnSync('open', ['-a', 'Tailscale']);
+      info('1. Tailscale is opening. If macOS asks to allow a VPN configuration or a system extension, allow it');
+      info('   (if it says it was blocked: System Settings → General → Login Items & Extensions → allow Tailscale).');
+      info('2. Click the Tailscale icon in the menu bar (top right of the screen) → Log in.');
+      info('3. Sign in with the same account as on your iPhone.');
+      if (!await waitFor(() => tsState() === 'Running', 'this Mac to sign in to Tailscale')) { bad('This Mac is not signed in to Tailscale yet.'); return later(); }
+    } else {
+      info('A sign-in link will appear: open it (or scan the QR with your phone) and sign in with the same account.');
+      close();
+      await runShowingLinks('sudo', [tailscaleBin(), 'up'], 15 * 60_000);
+      if (tsState() !== 'Running') { bad('This machine is not signed in to Tailscale yet.'); return later(); }
+    }
+  }
+  if (!isMac) spawnSync('sudo', ['-n', tailscaleBin(), 'set', `--operator=${os.userInfo().username}`], { stdio: 'ignore' });
+  ok('This machine is on your Tailscale network.');
+
+  // Publish Ask Q on the tailnet (HTTPS, only reachable from your devices)
+  const port = parseInt(await askText('HTTPS port on your tailnet', '443'), 10) || 443;
+  let t = await tailscaleServe(loadConfig().port, port);
+  for (let tries = 0; !t.ok && tries < 3; tries++) {
+    bad(t.why);
+    if (/HTTPS certificates/.test(t.why)) {
+      console.log(await qrText('https://login.tailscale.com/admin/dns'));
+      info('Open https://login.tailscale.com/admin/dns (or scan the QR with your phone) → "HTTPS Certificates" → Enable HTTPS.');
+      await question('Then press Enter… ');
+    } else if (/operator/.test(t.why) && !isMac) {
+      if (!await askYes('Allow Ask Q to configure Tailscale without sudo (tailscale set --operator)?')) break;
+      spawnSync('sudo', [tailscaleBin(), 'set', `--operator=${os.userInfo().username}`], { stdio: 'inherit' });
+    } else if (!await askYes('Try again?')) break;
+    t = await tailscaleServe(loadConfig().port, port);
+  }
+  if (!t.ok) return later();
+  ok(`Reachable only from your Tailscale devices: ${t.url}`);
+  const c = loadConfig(); c.url = t.url; saveConfig(c);
+  return t.url;
+}
+function later() { info(`When Tailscale is ready, run ${bold('askq setup')} again (your answers are kept).`); return null; }
+
 // Everything the Siri shortcut asks for when you add it, as QR codes: scan with the iPhone camera, tap, copy, paste.
 async function printSiri(url = loadConfig().url) {
   const QR = (await import('qrcode')).default;
@@ -295,7 +431,7 @@ async function chooseEngine(cfg, save) {
 // What setup asks, written over the current config (the daemon and the channel links write other fields meanwhile).
 function saveAnswers(cfg) {
   const c = loadConfig();
-  for (const k of ['name', 'language', 'timezone', 'engine', 'channel']) c[k] = cfg[k];
+  for (const k of ['name', 'language', 'timezone', 'engine', 'channel', 'tailscale']) c[k] = cfg[k];
   c.whatsapp = { ...c.whatsapp, mode: cfg.whatsapp.mode, group: cfg.whatsapp.group, owners: cfg.whatsapp.owners };
   saveConfig(c);
 }
@@ -367,36 +503,10 @@ async function setupSteps(cfg, save) {
   } catch (e) { bad(e.message); }
 
   // Tailscale
-  console.log(`\n${bold('6. Private access from your phone (Tailscale)')}`);
-  info('Tailscale connects your phone and this machine privately. You need the Tailscale app on your phone,');
-  info('signed in with Google/Apple/Microsoft/GitHub — this machine must use the SAME account. (Guide: docs/getting-started.md)');
-  let url = null;
-  const port = parseInt(await askText('HTTPS port on your tailnet', '443'), 10) || 443;
-  let t = await tailscaleServe(loadConfig().port, port);
-  for (let tries = 0; !t.ok && tries < 3; tries++) {
-    bad(t.why);
-    if (!tailscaleBin()) {
-      info(isMac ? 'Install the Tailscale app: https://tailscale.com/download/mac (sign in with the same account as your phone).'
-        : 'Install it with: curl -fsSL https://tailscale.com/install.sh | sh');
-    } else if (/not running|not logged in|NeedsLogin|Stopped|tailscale up/i.test(t.why) && !isMac) {
-      if (!await askYes('Log this machine in to Tailscale now? (opens a link to sign in)')) break;
-      spawnSync('sudo', [tailscaleBin(), 'up'], { stdio: 'inherit' });
-      spawnSync('sudo', [tailscaleBin(), 'set', `--operator=${os.userInfo().username}`], { stdio: 'inherit' });
-    } else if (/HTTPS certificates/.test(t.why)) {
-      const QR = (await import('qrcode')).default;
-      console.log(await QR.toString('https://login.tailscale.com/admin/dns', { type: 'terminal', small: true }));
-      info('Open https://login.tailscale.com/admin/dns (or scan the QR with your phone) → "HTTPS Certificates" → Enable HTTPS.');
-      await question('Then press Enter… ');
-    } else if (/operator/.test(t.why) && !isMac) {
-      if (!await askYes('Allow Ask Q to configure Tailscale without sudo (tailscale set --operator)?')) break;
-      spawnSync('sudo', [tailscaleBin(), 'set', `--operator=${os.userInfo().username}`], { stdio: 'inherit' });
-    } else if (!await askYes('Try again?')) break;
-    t = await tailscaleServe(loadConfig().port, port);
-  }
-  if (t.ok) { url = t.url; ok(`Reachable only from your Tailscale devices: ${url}`); const c3 = loadConfig(); c3.url = url; saveConfig(c3); }
-  else info('When Tailscale is ready, run askq setup again (your answers are kept).');
+  const url = await setupTailscale(cfg, save);
   close();
-  await printSiri(url);
+  if (cfg.tailscale === false) noSiri();
+  else await printSiri(url);
   console.log(`\nDone. Check everything with ${bold('askq doctor')}.`);
 }
 
@@ -466,7 +576,8 @@ async function doctor() {
   if (cfg.channel === 'telegram') (cfg.telegram.chatId && loadEnv().TELEGRAM_BOT_TOKEN) ? ok('Telegram paired') : bad('Telegram not paired: askq link telegram');
   if (cfg.voiceNotes) (fs.existsSync(P.stt) && which('ffmpeg')) ? ok('Voice notes') : bad('Voice notes enabled but not installed: askq setup');
   const ts = tailscaleBin();
-  if (!ts) bad('Tailscale not installed');
+  if (cfg.tailscale === false) info('Tailscale off: chat only, no Siri shortcut (turn it on with askq setup)');
+  else if (!ts) bad('Tailscale not installed');
   else { const r = spawnSync(ts, ['serve', 'status'], { encoding: 'utf8' }); r.stdout.includes(`127.0.0.1:${cfg.port}`) ? ok(`Tailscale serves Ask Q: ${r.stdout.split('\n').find(l => l.startsWith('https://')) || ''}`) : bad('Tailscale is not serving Ask Q (askq setup, step 6)'); }
 }
 
@@ -565,7 +676,7 @@ try {
     }
     case 'link': await linkChannel(args[0]); break;
     case 'token': await token(); break;
-    case 'siri': await printSiri(); break;
+    case 'siri': loadConfig().tailscale === false ? noSiri() : await printSiri(); break;
     case 'ai': case 'engine': case 'model': await ai(); break;
     case 'tool': await tool(); break;
     case 'tools': if (args[0] === 'sync') { const { sync } = await import('../src/tools.js'); await sync(); } else throw new Error('Use: askq tools sync'); break;
