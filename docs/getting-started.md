@@ -84,10 +84,11 @@ to accept. Then:
 1. **Tailscale login.** It prints a link like `https://login.tailscale.com/a/1a2b3c…`. Open it on your phone or
    computer and sign in with **the same account as in Step 3**. The machine now appears in your Tailscale app.
    *(On a Mac, install the Tailscale app from https://tailscale.com/download/mac and sign in there instead.)*
-2. **Setup questions.** `askq setup` starts:
+2. **Setup questions.** `askq setup` starts (press **Esc** at any question to save what you answered and stop;
+   run `askq setup` again to continue):
    - **Name, language, timezone** — type them or press Enter.
    - **The AI** — press Enter for Claude Code (recommended). Prefer ChatGPT, Cursor or Google? Pick Codex, Cursor or
-     Antigravity: setup installs it and opens its sign-in ([details](engines.md)).
+     Antigravity: setup installs it and opens its sign-in ([details](engines.md)). Switch later with `askq ai`.
    - **Claude** — if it isn't signed in yet:
      - With a subscription: choose option 1. It shows a sign-in link: open it (on your computer or phone), sign in to
        Claude and approve. If the page gives you a code, paste it back in the terminal. Setup picks up the token by itself.

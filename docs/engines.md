@@ -1,7 +1,7 @@
 # Choosing the AI (engine)
 
 Ask Q runs a coding agent on your machine and gives it your tools. You choose which one in `askq setup` (step 1),
-and you can change it any time by running `askq setup` again.
+and you can switch any time with `askq ai` (just that question, no full setup).
 
 | Engine | Pay with | Status |
 |---|---|---|
@@ -34,7 +34,7 @@ Edit `CLAUDE.md`; the copy is refreshed on every message.
 
 ## Signing in
 
-`askq setup` installs the engine if it's missing and opens its sign-in:
+`askq setup` and `askq ai` install the engine if it's missing and opens its sign-in:
 
 | Engine | Install | Sign in |
 |---|---|---|
@@ -43,6 +43,10 @@ Edit `CLAUDE.md`; the copy is refreshed on every message.
 | Antigravity | `curl -fsSL https://antigravity.google/cli/install.sh \| bash` | the first run prints a Google link; to use a Gemini API key instead, set `"modelProvider": "gemini"` in `~/.gemini/antigravity-cli/settings.json` and `GEMINI_API_KEY` |
 
 Check it with `askq doctor`: it says "<engine> answers" when it's ready.
+
+Codex sign-in says **"No eligible workspace supports Codex CLI"** (`codex_cli_workspace_disabled`): your ChatGPT
+account belongs to a workspace (work or school) whose admin hasn't enabled Codex CLI. Sign in again and pick your
+personal workspace, use an OpenAI API key, or choose another engine with `askq ai`.
 
 ## Known limits (beta engines)
 

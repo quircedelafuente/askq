@@ -17,8 +17,10 @@ const ok = s => console.log(`${green('✓')} ${s}`), bad = s => console.log(`${r
 
 // ---------- prompts ----------
 // One readline for the whole run; answers are queued so piped input (tests, scripts) works as well as a terminal.
-let rl = null, muted = false;
+// In a terminal, Esc while a question is waiting rejects it with Esc (setup saves what was answered and exits).
+let rl = null, muted = false, pending = null, escHooked = false;
 const lines = [], waiting = [];
+class Esc extends Error { constructor() { super('cancelled'); } }
 function io() {
   if (rl) return rl;
   rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: !!process.stdin.isTTY });
@@ -26,6 +28,10 @@ function io() {
   if (write) rl._writeToOutput = s => { if (!muted) write(s); };
   rl.on('line', l => { const w = waiting.shift(); w ? w(l) : lines.push(l); });
   rl.on('close', () => { while (waiting.length) waiting.shift()(''); });
+  if (process.stdin.isTTY && !escHooked) {   // once: readline is re-created after close(), stdin stays
+    escHooked = true;
+    process.stdin.on('keypress', (_, k) => { if (k?.name === 'escape' && k.sequence === '\x1b') pending?.(); });
+  }
   return rl;
 }
 const close = () => { rl?.close(); rl = null; };
@@ -33,9 +39,11 @@ function question(q, { hidden = false } = {}) {
   io();
   process.stdout.write(q);
   muted = hidden && !!process.stdin.isTTY;
-  return new Promise(r => {
-    const done = a => { if (muted) process.stdout.write('\n'); muted = false; r(a); };
-    lines.length ? done(lines.shift()) : waiting.push(done);
+  return new Promise((r, j) => {
+    const done = a => { pending = null; if (muted) process.stdout.write('\n'); muted = false; r(a); };
+    if (lines.length) return done(lines.shift());
+    waiting.push(done);
+    pending = () => { waiting.splice(waiting.indexOf(done), 1); pending = null; muted = false; process.stdout.write('\n'); j(new Esc()); };
   });
 }
 async function askText(q, def = '') { const a = (await question(`${q}${def ? dim(` [${def}]`) : ''}: `)).trim(); return a || def; }
@@ -257,21 +265,13 @@ async function printSiri(url = loadConfig().url) {
 }
 
 // ---------- commands ----------
-async function setup() {
-  console.log(`${bold('Ask Q setup')} ${dim(`(${HOME})`)}\n`);
-  const cfg = await init();
-  cfg.name = await askText('Your name', cfg.name || os.userInfo().username);
-  cfg.language = await askText('Default language for answers (en, es, fr…)', cfg.language);
-  cfg.timezone = await askText('Your timezone', cfg.timezone);
-  saveConfig(cfg);
-  writeWorkspace(cfg);
-
-  // The AI
+// Step 1 of setup, and `askq ai` on its own: pick the AI, install it and sign in.
+async function chooseEngine(cfg, save) {
   console.log(`\n${bold('1. The AI')} ${dim('(what understands you and uses the tools)')}`);
   const names = Object.keys(ENGINES);
   cfg.engine = await choose('Which one?', names.map(n => ({ label: ENGINES[n].label, hint: n === 'claude' ? `recommended · ${ENGINES[n].account}` : `${ENGINES[n].account} · see docs/engines.md`, value: n })),
     names.indexOf(engineName(cfg)));
-  saveConfig(cfg);
+  save();
   let c = cfg.engine === 'claude' ? claudeWorks() : { ok: true, other: true };
   if (c.other) await setupEngine(cfg.engine);
   else if (c.ok) ok('Claude Code works on this machine.');
@@ -290,6 +290,38 @@ async function setup() {
     if (c.ok) ok('Claude Code works.');
     else { setEnv(key, ''); bad(`Claude still does not answer: ${c.why}\n  The key was not saved. Fix it and run askq setup again (or askq doctor).`); }
   }
+}
+
+// What setup asks, written over the current config (the daemon and the channel links write other fields meanwhile).
+function saveAnswers(cfg) {
+  const c = loadConfig();
+  for (const k of ['name', 'language', 'timezone', 'engine', 'channel']) c[k] = cfg[k];
+  c.whatsapp = { ...c.whatsapp, mode: cfg.whatsapp.mode, group: cfg.whatsapp.group, owners: cfg.whatsapp.owners };
+  saveConfig(c);
+}
+
+async function setup() {
+  console.log(`${bold('Ask Q setup')} ${dim(`(${HOME})`)}`);
+  if (process.stdin.isTTY) console.log(dim('Press Esc at any question to save your answers so far and exit.'));
+  console.log();
+  const cfg = await init();
+  const save = () => saveAnswers(cfg);
+  try { await setupSteps(cfg, save); }
+  catch (e) {
+    if (!(e instanceof Esc)) throw e;
+    save(); close();
+    console.log(`\n${green('✓')} Setup stopped. Your answers so far are saved; run ${bold('askq setup')} to continue.`);
+  }
+}
+
+async function setupSteps(cfg, save) {
+  cfg.name = await askText('Your name', cfg.name || os.userInfo().username);
+  cfg.language = await askText('Default language for answers (en, es, fr…)', cfg.language);
+  cfg.timezone = await askText('Your timezone', cfg.timezone);
+  save();
+  writeWorkspace(cfg);
+
+  await chooseEngine(cfg, save);
 
   // Channel
   console.log(`\n${bold('2. Chat channel')} ${dim('(where Ask Q sends you tickets, files and reminders, and where you can chat with it)')}`);
@@ -306,7 +338,7 @@ async function setup() {
     if (cfg.whatsapp.mode === 'group') cfg.whatsapp.group = await askText('Group name', cfg.whatsapp.group);
     else cfg.whatsapp.owners = (await askText('Your phone number(s) it should answer, with country code (comma-separated)', cfg.whatsapp.owners.join(','))).split(',').map(s => s.replace(/\D/g, '')).filter(Boolean);
   }
-  saveConfig(cfg);
+  save();
   if (cfg.channel !== 'none' && await askYes(`Link ${cfg.channel} now?`)) await linkChannel(cfg.channel).catch(e => bad(e.message));
 
   // Voice notes
@@ -366,6 +398,22 @@ async function setup() {
   close();
   await printSiri(url);
   console.log(`\nDone. Check everything with ${bold('askq doctor')}.`);
+}
+
+// `askq ai`: switch the AI without going through the whole setup. Esc leaves it as it was.
+async function ai() {
+  const cfg = await init(), before = engineName(cfg);
+  if (process.stdin.isTTY) console.log(dim('Press Esc to exit without changing anything.'));
+  try { await chooseEngine(cfg, () => saveAnswers(cfg)); }
+  catch (e) {
+    if (!(e instanceof Esc)) throw e;
+    if (cfg.engine !== before) { cfg.engine = before; saveAnswers(cfg); }
+    close(); return console.log('No changes.');
+  }
+  close();
+  // The service reads the AI on every message; reinstalling it refreshes its PATH in case the new one was just installed.
+  const svc = await import('../src/service.js');
+  if (svc.installed()) { svc.install(); ok(`Ask Q now uses ${ENGINES[cfg.engine].label}. Conversations start fresh.`); }
 }
 
 async function doctor() {
@@ -446,6 +494,7 @@ const HELP = `${bold('askq')} — your own assistant: Siri, WhatsApp or Telegram
   askq logs [lines]           recent logs
   askq ask "question"         talk to it from the terminal
   askq link whatsapp|telegram [your-number]   link a chat channel (QR, or a code if you give your number)
+  askq ai                     choose the AI that does the work (Claude Code, Codex, Cursor, Antigravity)
   askq siri                   QR codes with what the Siri shortcut asks for (token and URL)
   askq token [--show|--qr|--rotate]           the key your Siri shortcut uses
 
@@ -483,6 +532,7 @@ try {
     case 'link': await linkChannel(args[0]); break;
     case 'token': await token(); break;
     case 'siri': await printSiri(); break;
+    case 'ai': case 'engine': case 'model': await ai(); break;
     case 'tool': await tool(); break;
     case 'tools': if (args[0] === 'sync') { const { sync } = await import('../src/tools.js'); await sync(); } else throw new Error('Use: askq tools sync'); break;
     case 'secret': await secret(); break;

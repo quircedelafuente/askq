@@ -65,8 +65,9 @@ More: [docs/creating-tools.md](docs/creating-tools.md).
 ## Commands
 
 ```
-askq setup                    interactive setup (run again to change anything)
+askq setup                    interactive setup (run again to change anything; Esc saves and exits)
 askq doctor                   check that everything works
+askq ai                       choose the AI (Claude Code, Codex, Cursor, Antigravity)
 askq ask "question"           talk to it from the terminal
 askq link whatsapp|telegram   link a chat channel
 askq siri                     QR codes with what the Siri shortcut asks for

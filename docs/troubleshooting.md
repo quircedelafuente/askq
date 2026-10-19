@@ -29,6 +29,12 @@ Start with `askq doctor` — it checks every piece and tells you the command tha
 - **"Claude Code is not signed in"**: run `askq setup` again (step 1), or `claude setup-token` and paste the token.
 - **Usage limits**: with a subscription, Ask Q shares your plan's limits with your other Claude usage.
 
+## Codex, Cursor, Antigravity
+
+- **"<engine> is not signed in"**: run `askq ai` and pick it again; it reopens the sign-in.
+- **Codex: "No eligible workspace supports Codex CLI"**: your ChatGPT workspace has Codex CLI turned off. Pick your
+  personal workspace when signing in, use an OpenAI API key, or switch engine with `askq ai` ([more](engines.md)).
+
 ## Background service
 
 - **Linux/WSL**: `systemctl --user status askq` and `journalctl --user -u askq`.
