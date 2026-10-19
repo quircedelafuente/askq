@@ -5,10 +5,17 @@
   "license": "MIT",
   "author": "Quirce de la Fuente",
   "homepage": "https://github.com/quircedelafuente/askq",
-  "repository": { "type": "git", "url": "git+https://github.com/quircedelafuente/askq.git" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/quircedelafuente/askq.git"
+  },
   "type": "module",
-  "bin": { "askq": "bin/askq.js" },
-  "engines": { "node": ">=20" },
+  "bin": {
+    "askq": "bin/askq.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "test": "node --test test/"
   },
@@ -16,6 +23,7 @@
     "@modelcontextprotocol/sdk": "^1.32.1",
     "@whiskeysockets/baileys": "^7.0.0-rc14",
     "pino": "^10.4.0",
+    "playwright": "1.63.0",
     "qrcode": "^1.5.4",
     "zod": "^4.6.7"
   }

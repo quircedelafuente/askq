@@ -2,6 +2,7 @@
 // every tool you create lives in ~/.askq/tools/<name>, made from templates/tool.
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { P, APP, readJSON, writePrivate, loadConfig } from './config.js';
@@ -19,9 +20,9 @@ export function ensureBuiltins() {
   writeMcp(m);
 }
 
-export function register(name, dir) {
+export function register(name, dir, entry = 'index.js') {
   const m = readMcp();
-  m.mcpServers[name] = { command: process.execPath, args: [path.join(dir, 'index.js')],
+  m.mcpServers[name] = { command: process.execPath, args: [path.join(dir, entry)],
     env: { ASKQ_HOME: path.dirname(P.config), ASKQ_SECRETS: path.join(P.secrets, `${name}.json`) } };
   writeMcp(m);
 }
@@ -48,6 +49,46 @@ export function scaffold(name, description = '') {
   fs.symlinkSync(path.join(APP, 'node_modules'), path.join(dir, 'node_modules'), 'dir');
   register(name, dir);
   return dir;
+}
+
+// Install a tool someone shared: a git repository (GitHub link) or a local folder with an MCP server in Node.
+// It is copied to ~/.askq/tools/<name>, its packages installed, and its entry point (package.json bin/main, or
+// index.js) registered. Returns { name, dir, login } (login: the tool declares a sign-in page, see web-login.js).
+export function add(source, name) {
+  const isGit = /^(https?:\/\/|git@)/.test(source);
+  name ||= path.basename(source.replace(/\/+$/, '')).replace(/\.git$/, '').toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '');
+  if (!NAME.test(name) || name === 'askq-phone') throw new Error(`"${name}" is not a valid tool name. Give one: askq tool add <source> <name>`);
+  const dir = path.join(P.tools, name);
+  if (fs.existsSync(dir)) throw new Error(`${dir} already exists. Remove it first: askq tool remove ${name}`);
+  fs.mkdirSync(P.tools, { recursive: true, mode: 0o700 });
+  if (isGit) {
+    const r = spawnSync('git', ['clone', '--depth', '1', '--quiet', source, dir], { encoding: 'utf8', env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } });
+    if (r.status !== 0) {
+      fs.rmSync(dir, { recursive: true, force: true });
+      throw new Error(/could not read Username|Authentication failed|not found|terminal prompts disabled/i.test(r.stderr)
+        ? 'Could not download it: the repository is private or does not exist. If it is private, its owner must invite your GitHub account, and this machine must be signed in to GitHub once (in a terminal: gh auth login, then gh auth setup-git).'
+        : `git clone failed: ${r.stderr.trim().slice(-300)}`);
+    }
+  } else {
+    if (!fs.existsSync(path.join(source, 'package.json')) && !fs.existsSync(path.join(source, 'index.js'))) throw new Error(`${source} does not look like a Node tool (no package.json or index.js).`);
+    fs.cpSync(source, dir, { recursive: true, filter: f => !/[\/](node_modules|\.git|\.auth|\.cache)$/.test(f) });
+  }
+  const pkg = readJSON(path.join(dir, 'package.json'), {});
+  const entry = (typeof pkg.bin === 'string' ? pkg.bin : pkg.bin && Object.values(pkg.bin)[0]) || pkg.main || 'index.js';
+  if (!fs.existsSync(path.join(dir, entry))) throw new Error(`Could not find the tool's entry point (${entry}).`);
+  if (fs.existsSync(path.join(dir, 'package.json'))) {
+    const r = spawnSync('npm', ['install', '--omit=dev', '--no-fund', '--no-audit', '--quiet'], { cwd: dir, encoding: 'utf8' });
+    if (r.status !== 0) throw new Error(`npm install failed: ${(r.stderr || '').trim().slice(-300)}`);
+  }
+  const deps = { ...pkg.dependencies, ...pkg.optionalDependencies };
+  if (deps.playwright || deps['playwright-core']) {
+    const cli = path.join(dir, 'node_modules', 'playwright', 'cli.js');
+    if (fs.existsSync(cli)) spawnSync(process.execPath, [cli, 'install', 'chromium'], { cwd: dir, stdio: 'ignore', timeout: 10 * 60_000 });
+  }
+  // The sign-in page (askq login) uses Ask Q's own browser: download it now rather than on the first login.
+  if (pkg.askq?.login?.url) spawnSync(process.execPath, [path.join(APP, 'node_modules', 'playwright', 'cli.js'), 'install', 'chromium'], { stdio: 'ignore', timeout: 10 * 60_000 });
+  register(name, dir, entry);
+  return { name, dir, login: !!pkg.askq?.login?.url };
 }
 
 async function connect(name, server) {

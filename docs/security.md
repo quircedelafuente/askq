@@ -20,8 +20,14 @@ page can't approve anything. One "yes" covers one kind of action, and only the r
 **Your data stays on your machine.** Messages, tools, secrets and logs live in `~/.askq` (mode 700). What you ask is
 processed by Claude (Anthropic) like any Claude Code session.
 
-**No third-party tool store.** Tools are created by you (or by Ask Q for you) on your machine. There's nothing to
-download from strangers.
+**Website logins without passwords in the chat.** When a tool needs you to sign in (SSO, 2-step codes), Ask Q opens
+the site in a browser on your machine and sends you a one-time link, valid 15 minutes and reachable only through your
+tailnet. You type on the real page; the password goes to the website, not to the chat or the AI. Only the resulting
+session is saved, in that tool's folder (mode 600).
+
+**No third-party tool store.** Tools are created by you (or by Ask Q for you) on your machine. You can install a tool
+someone shares with `askq tool add <link>`: it runs with your user's permissions, so only install tools from people you
+trust, and its functions are still subject to the "yes" rule according to how they're marked.
 
 ## Limits you should know
 

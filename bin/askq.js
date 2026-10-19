@@ -610,7 +610,13 @@ function logs() {
 async function tool() {
   const t = await import('../src/tools.js');
   const [sub, name, ...rest] = args;
-  if (sub === 'new') {
+  if (sub === 'add') {
+    if (!name) throw new Error('Use: askq tool add <git link or folder> [name]');
+    const r = t.add(name, rest[0]);
+    ok(`Installed ${r.name} in ${r.dir}`);
+    await t.sync({ quiet: false });
+    if (r.login) info(`It needs you to sign in: ${bold(`askq login ${r.name}`)} (or ask Ask Q: "log me in to ${r.name}").`);
+  } else if (sub === 'new') {
     const dir = t.scaffold(name, rest.join(' '));
     ok(`Created ${dir}`); info('Edit index.js, then: askq tool test ' + name + ' && askq tools sync');
   } else if (sub === 'list' || !sub) {
@@ -627,7 +633,24 @@ async function tool() {
     const r = spawnSync('npm', ['install', '--no-fund', '--no-audit', ...rest], { cwd: dir, stdio: 'inherit' });
     if (r.status !== 0) throw new Error('npm install failed');
     ok(`Installed in ${dir}`);
-  } else throw new Error('Use: askq tool new <name> ["description"] | list | test <name> [function] [json] | deps <name> <pkg…> | remove <name>');
+  } else throw new Error('Use: askq tool add <git link|folder> [name] | new <name> ["description"] | list | test <name> [function] [json] | deps <name> <pkg…> | remove <name>');
+}
+
+// `askq login <tool>`: a private link to sign in to the tool's website from your phone (needs the service running).
+async function login() {
+  const tool = args[0];
+  if (!tool) throw new Error('Use: askq login <tool>');
+  const { internalToken } = await import('../src/config.js');
+  const r = await fetch(`http://127.0.0.1:${loadConfig().port}/internal/login`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${internalToken()}` },
+    body: JSON.stringify({ tool, send: false }), signal: AbortSignal.timeout(120_000),
+  }).catch(() => { throw new Error('The Ask Q service is not running (askq start).'); });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+  console.log(await qrText(j.link));
+  info(`Open this on your phone (or scan the QR) and sign in on the real page. It expires in ${j.expiresInMinutes} minutes:`);
+  info(j.link);
+  info('You will get a message in the chat when the session is saved.');
 }
 
 async function secret() {
@@ -660,7 +683,9 @@ const HELP = `${bold('askq')} — your own assistant: Siri, WhatsApp or Telegram
   askq token [--show|--qr|--rotate]           the key your Siri shortcut uses
 
   askq tool new <name> ["what it does"]       create a tool (the assistant does this for you when you ask)
+  askq tool add <git link|folder> [name]      install a tool someone shared (an MCP server in Node)
   askq tool list | test <name> [fn] [json] | deps <name> <pkg…> | remove <name>
+  askq login <tool>           sign in to a tool's website from your phone (a private link; passwords never go through the chat)
   askq tools sync             re-read tools (which functions need your "yes")
   askq secret set <tool> <KEY>                store a password or API key for a tool (hidden input)
 
@@ -697,6 +722,7 @@ try {
     case 'tool': await tool(); break;
     case 'tools': if (args[0] === 'sync') { const { sync } = await import('../src/tools.js'); await sync(); } else throw new Error('Use: askq tools sync'); break;
     case 'secret': await secret(); break;
+    case 'login': await login(); break;
     case 'uninstall': await uninstall(); break;
     case undefined: case 'help': case '--help': case '-h': console.log(HELP); break;
     default: throw new Error(`Unknown command "${cmd}". Run: askq help`);

@@ -3,12 +3,14 @@
 //    Listens on 127.0.0.1 only; Tailscale (`tailscale serve`) is the only way in from your phone.
 //  · Chat channel (WhatsApp or Telegram): you chat with Ask Q, and it can send you files and reminders.
 //  · Internal API for the askq-phone tool and the guard (127.0.0.1, internal token).
+//  · /login/<id>: sign in to a tool's website from your phone (src/web-login.js).
 import http from 'node:http';
 import crypto from 'node:crypto';
 import { P, loadConfig, getToken, internalToken, sameSecret, readJSON, writePrivate, logger, ensureDirs } from './config.js';
 import { ask, resetSession, deliverEarly, markSent } from './agent.js';
 import { isNewConversation } from './confirm.js';
 import { createChat } from './chat/core.js';
+import * as webLogin from './web-login.js';
 
 const log = logger('service');
 const cfg = loadConfig();
@@ -124,6 +126,17 @@ const server = http.createServer(async (req, res) => {
         log('SENT', (j.files || []).length, 'files');
         return send(res, 200, { sent: true, channel: cfg.channel }, 'application/json');
       }
+      if (route === 'login') {
+        const tool = String(j.tool || '');
+        let id;
+        try { ({ id } = await webLogin.startLogin(tool, { onEnd: st => st === 'saved' && notify(`✅ Signed in to ${tool}. You can use it now.`).catch(() => {}) })); }
+        catch (e) { log('LOGIN-FAIL', tool, e.message); return send(res, 400, { error: e.message }, 'application/json'); }
+        const c = loadConfig(), origin = c.url ? new URL(c.url).origin : `http://127.0.0.1:${c.port}`;
+        const link = `${origin}/login/${id}`;
+        let sent = false;
+        if (chat && j.send !== false) sent = await notify(`🔐 Sign in to ${tool}: open this link on your phone${c.url ? ' (with Tailscale on)' : ' (it only works on this machine)'} and sign in on the real page. It expires in 15 minutes.\n${link}`).then(() => true, () => false);
+        return send(res, 200, { link, sent, expiresInMinutes: 15 }, 'application/json');
+      }
       if (route === 'reminders' && req.method === 'GET') return send(res, 200, readReminders().map(r => ({ id: r.id, when: r.when, text: r.text })), 'application/json');
       if (route === 'reminders') {
         const at = zonedToEpoch(j.when, cfg.timezone);
@@ -153,6 +166,7 @@ const server = http.createServer(async (req, res) => {
       log('SIRI', JSON.stringify(text.slice(0, 200)));
       return send(res, 200, clean(await siri(text)));
     }
+    if (url.pathname.startsWith('/login/') && await webLogin.handle(req, res, url, body)) return;
     send(res, 404, 'not found');
   } catch (e) {
     log('HTTP-ERROR', e.message);

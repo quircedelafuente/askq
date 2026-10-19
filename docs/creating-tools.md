@@ -59,3 +59,38 @@ Ask Q uses (see `~/.askq/mcp.json`).
 
 Respect websites' terms of service, don't bypass CAPTCHAs or bot protection, and don't hammer sites with requests.
 Automating your own account for your own use is usually fine; reselling access or scraping at scale is not.
+
+## Tools with a website login
+
+If a tool drives a website that needs the user's login (Microsoft/Google SSO, 2-step codes), it declares it in its
+`package.json` instead of keeping a password:
+
+```json
+"askq": {
+  "login": {
+    "url": "https://site.com/login",
+    "check": "https://site.com/api/me",
+    "state": ".auth/state.json",
+    "hint": "Choose Yes on \"Stay signed in?\""
+  }
+}
+```
+
+`askq login <tool>`, or asking Ask Q "log me in to <tool>", opens that page in a browser on the Ask Q machine and gives
+you a private link (through Tailscale; it expires in 15 minutes). On your phone you see the real page live and sign in
+yourself: taps, typing and scrolling go to that browser. As soon as `check` answers 2xx (or the address matches
+`"done"`, a regex), the session — Playwright `storageState`, cookies and local storage — is saved to `state` inside the
+tool's folder (mode 600) and you get a message. The tool opens its browser with that file.
+
+## Sharing a tool
+
+A tool is a folder with an MCP server, so you can put it on GitHub and anyone with Ask Q installs it with:
+
+```bash
+askq tool add https://github.com/you/your-tool      # or just send the link in the chat: "install this tool: …"
+```
+
+It is cloned into `~/.askq/tools/<name>`, its packages installed, its entry point (`bin`, `main` or `index.js`)
+registered, and Chromium installed if it uses Playwright. Never commit the `.auth/` folder: it holds your session.
+For a private repository, invite your friend on GitHub; their machine needs to be signed in to GitHub once
+(`gh auth login`, then `gh auth setup-git`).

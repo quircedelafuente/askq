@@ -49,6 +49,19 @@ server.registerTool('tell_user_now', {
   } catch (e) { return fail(e); }
 });
 
+server.registerTool('open_login_page', {
+  description: "When a tool needs the user to sign in to a website (its error says there is no session / the session expired / log in, or the user asks to log in), call this with the tool's name. Ask Q opens that website in a browser on this machine and sends the user a private link: they sign in on the real page from their phone, so passwords and 2-step codes never go through the chat. Ask Q tells them when the session is saved; then the tool works. Never ask the user for their password instead.",
+  inputSchema: { tool: z.string().describe('Tool name, as in askq tool list (e.g. blackboard-mcp)') },
+  annotations: { readOnlyHint: true },
+}, async ({ tool }) => {
+  try {
+    const r = await call('login', { tool });
+    return text(r.sent
+      ? `Done: the sign-in link is already in the user's chat (expires in ${r.expiresInMinutes} min). Tell them briefly to open it and sign in; they'll get a message when it's saved. Don't repeat the link.`
+      : `Give the user this sign-in link (expires in ${r.expiresInMinutes} min): ${r.link}`);
+  } catch (e) { return fail(e); }
+});
+
 server.registerTool('remind_me', {
   description: "Schedule a reminder that will be sent to the user's phone. `when` is local time 'YYYY-MM-DD HH:MM' in the user's timezone.",
   inputSchema: { when: z.string().regex(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/), text: z.string().min(1) },

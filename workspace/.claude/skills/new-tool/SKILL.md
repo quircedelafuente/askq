@@ -22,6 +22,17 @@ you on the next message, and the guard knows which functions have real effects f
    If Chromium fails to start because of missing system libraries, you cannot fix that yourself (no sudo): tell the
    user to run once on the server `sudo npx playwright install-deps chromium`.
 
+**Sites with a login page (SSO, 2-step codes):** don't store their password. Declare the login in the tool's
+`package.json` and read the saved session:
+```json
+"askq": { "login": { "url": "https://site.com/login", "check": "https://site.com/api/me", "state": ".auth/state.json",
+                     "hint": "Choose Yes on Stay signed in" } }
+```
+`check` is a URL that answers 2xx only when signed in (or use `"done": "<regex of the address after login>"`). In the
+tool, open Playwright with `browser.newContext({ storageState: '<tool folder>/.auth/state.json' })`. When the file is
+missing or the site sends you back to its login, throw "Not signed in: use open_login_page for <name>". Then call
+`askq-phone` → `open_login_page`: the user signs in from their phone and the session is saved in that file.
+
 Never try to bypass CAPTCHAs, bot protection or paywalls, and respect the site's terms. If the site blocks automation,
 tell the user plainly and suggest an alternative.
 
