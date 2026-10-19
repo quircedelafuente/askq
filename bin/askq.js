@@ -275,15 +275,37 @@ async function waitFor(ready, what, ms = 30 * 60_000) {
 
 function noSiri() {
   console.log(`\n${bold('Siri shortcut')}`);
+  if (loadConfig().siri === false) {
+    info('Skipped. Chat with Ask Q in WhatsApp or Telegram, or from the terminal with askq ask "…".');
+    return info(`Got an iPhone later? Run ${bold('askq setup')} → Siri → Yes.`);
+  }
   info('Off: the Siri shortcut needs Tailscale. Chat with Ask Q in WhatsApp or Telegram instead');
   info('(with WhatsApp on its own number you can also say "Hey Siri, send a WhatsApp to Ask Q").');
   info(`To turn on the Siri shortcut later: ${bold('askq setup')} → Tailscale → Yes.`);
 }
 
-// Step 6: Tailscale is optional. With it, the Siri shortcut reaches this machine through a private network; without it,
-// nothing listens beyond this machine and Ask Q works through the chat only.
+// Ask Q is no longer published on the tailnet (Siri or Tailscale turned off).
+function unpublish(cfg) {
+  const ts = tailscaleBin(), url = loadConfig().url;
+  if (ts && url && spawnSync(ts, ['serve', 'status'], { encoding: 'utf8' }).stdout?.includes(`127.0.0.1:${cfg.port}`)) {
+    spawnSync(ts, ['serve', `--https=${new URL(url).port || 443}`, 'off']);
+    ok('Ask Q is no longer published on Tailscale.');
+  }
+  const c = loadConfig(); c.url = null; saveConfig(c);
+}
+
+// Step 6: Siri is optional (no iPhone, chat only), and so is Tailscale. With Tailscale, the Siri shortcut reaches this
+// machine through a private network; without it, nothing listens beyond this machine and Ask Q works through the chat.
 async function setupTailscale(cfg, save) {
-  console.log(`\n${bold('6. Siri from your iPhone (Tailscale)')}`);
+  console.log(`\n${bold('6. Siri')} ${dim('(talk to Ask Q with "Hey Siri, Ask Q" on an iPhone, iPad, Apple Watch or Mac)')}`);
+  cfg.siri = await choose('Set up the Siri shortcut?', [
+    { label: 'Yes, I have an iPhone', value: true },
+    { label: 'No, skip Siri', hint: 'no iPhone · use the chat (WhatsApp/Telegram) only', value: false },
+  ], cfg.siri === false ? 1 : 0);
+  save();
+  if (!cfg.siri) { unpublish(cfg); return null; }
+
+  console.log(`\n${bold('   Tailscale')}`);
   info('Tailscale is a free private network between your own devices. The Siri shortcut uses it to reach this machine.');
   info(`${bold('Recommended:')} Ask Q stays invisible from the internet. Only your devices, signed in to your Tailscale account,`);
   info('can reach it: nothing is opened to the outside, and strangers can\'t even see it is there.');
@@ -293,15 +315,7 @@ async function setupTailscale(cfg, save) {
     { label: 'Continue without Tailscale', hint: 'chat only, no Siri shortcut', value: false },
   ], cfg.tailscale === false ? 1 : 0);
   cfg.tailscale = use; save();
-  if (!use) {
-    const ts = tailscaleBin(), url = loadConfig().url;
-    if (ts && url && spawnSync(ts, ['serve', 'status'], { encoding: 'utf8' }).stdout?.includes(`127.0.0.1:${cfg.port}`)) {
-      spawnSync(ts, ['serve', `--https=${new URL(url).port || 443}`, 'off']);
-      ok('Ask Q is no longer published on Tailscale.');
-    }
-    const c = loadConfig(); c.url = null; saveConfig(c);
-    return null;
-  }
+  if (!use) { unpublish(cfg); return null; }
 
   const have = await choose('Do you already have Tailscale?', [
     { label: 'Yes, on my iPhone and on this machine', value: 'both' },
@@ -431,7 +445,7 @@ async function chooseEngine(cfg, save) {
 // What setup asks, written over the current config (the daemon and the channel links write other fields meanwhile).
 function saveAnswers(cfg) {
   const c = loadConfig();
-  for (const k of ['name', 'language', 'timezone', 'engine', 'channel', 'tailscale']) c[k] = cfg[k];
+  for (const k of ['name', 'language', 'timezone', 'engine', 'channel', 'siri', 'tailscale']) c[k] = cfg[k];
   c.whatsapp = { ...c.whatsapp, mode: cfg.whatsapp.mode, group: cfg.whatsapp.group, owners: cfg.whatsapp.owners };
   saveConfig(c);
 }
@@ -505,7 +519,7 @@ async function setupSteps(cfg, save) {
   // Tailscale
   const url = await setupTailscale(cfg, save);
   close();
-  if (cfg.tailscale === false) noSiri();
+  if (cfg.siri === false || cfg.tailscale === false) noSiri();
   else await printSiri(url);
   console.log(`\nDone. Check everything with ${bold('askq doctor')}.`);
 }
@@ -576,7 +590,8 @@ async function doctor() {
   if (cfg.channel === 'telegram') (cfg.telegram.chatId && loadEnv().TELEGRAM_BOT_TOKEN) ? ok('Telegram paired') : bad('Telegram not paired: askq link telegram');
   if (cfg.voiceNotes) (fs.existsSync(P.stt) && which('ffmpeg')) ? ok('Voice notes') : bad('Voice notes enabled but not installed: askq setup');
   const ts = tailscaleBin();
-  if (cfg.tailscale === false) info('Tailscale off: chat only, no Siri shortcut (turn it on with askq setup)');
+  if (cfg.siri === false) info('Siri skipped: chat only (turn it on with askq setup)');
+  else if (cfg.tailscale === false) info('Tailscale off: chat only, no Siri shortcut (turn it on with askq setup)');
   else if (!ts) bad('Tailscale not installed');
   else { const r = spawnSync(ts, ['serve', 'status'], { encoding: 'utf8' }); r.stdout.includes(`127.0.0.1:${cfg.port}`) ? ok(`Tailscale serves Ask Q: ${r.stdout.split('\n').find(l => l.startsWith('https://')) || ''}`) : bad('Tailscale is not serving Ask Q (askq setup, step 6)'); }
 }
@@ -676,7 +691,7 @@ try {
     }
     case 'link': await linkChannel(args[0]); break;
     case 'token': await token(); break;
-    case 'siri': loadConfig().tailscale === false ? noSiri() : await printSiri(); break;
+    case 'siri': { const c = loadConfig(); c.siri === false || c.tailscale === false ? noSiri() : await printSiri(); break; }
     case 'ai': case 'engine': case 'model': await ai(); break;
     case 'tool': await tool(); break;
     case 'tools': if (args[0] === 'sync') { const { sync } = await import('../src/tools.js'); await sync(); } else throw new Error('Use: askq tools sync'); break;

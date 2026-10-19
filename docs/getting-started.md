@@ -94,6 +94,7 @@ to accept. Then:
    - **Chat channel** — see Step 5.
    - **Voice notes** — say yes if you want to send voice messages in the chat.
    - **Background service** — press Enter.
+   - **Siri** — no iPhone? Choose **No, skip Siri** and use Ask Q through the chat (skip Step 3 and Step 6).
    - **Tailscale** — choose **Yes** (recommended) or **Continue without Tailscale**. With Yes, it asks whether you
      already have it and walks you through what's missing:
      - on a server, it installs Tailscale and shows a sign-in link and QR: sign in with **the same account as in Step 3**;
