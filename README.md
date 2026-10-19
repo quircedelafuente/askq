@@ -69,6 +69,7 @@ askq setup                    interactive setup (run again to change anything)
 askq doctor                   check that everything works
 askq ask "question"           talk to it from the terminal
 askq link whatsapp|telegram   link a chat channel
+askq siri                     QR codes with what the Siri shortcut asks for
 askq tool new|list|test|remove
 askq secret set <tool> <KEY>  store a password or API key for a tool
 askq start|stop|restart|status|logs

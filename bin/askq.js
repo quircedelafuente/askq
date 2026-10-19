@@ -4,10 +4,12 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import readline from 'node:readline';
-import { spawnSync, execFileSync } from 'node:child_process';
+import { spawn, spawnSync, execFileSync } from 'node:child_process';
+import { findToken } from '../src/claude-token.js';
 import { P, APP, HOME, loadConfig, saveConfig, ensureDirs, getToken, rotateToken, setEnv, loadEnv, claudeEnv, readJSON, writePrivate } from '../src/config.js';
 
 const [cmd, ...args] = process.argv.slice(2);
+const SHORTCUT = 'https://www.icloud.com/shortcuts/e1315a2a57eb4d1ea67a3552f287e751';
 const isMac = process.platform === 'darwin';
 const bold = s => `\x1b[1m${s}\x1b[0m`, dim = s => `\x1b[2m${s}\x1b[0m`, green = s => `\x1b[32m${s}\x1b[0m`, red = s => `\x1b[31m${s}\x1b[0m`;
 const ok = s => console.log(`${green('✓')} ${s}`), bad = s => console.log(`${red('✗')} ${s}`), info = s => console.log(`  ${s}`);
@@ -106,6 +108,24 @@ function claudeWorks() {
   catch { return { ok: false, why: (r.stderr || r.stdout || '').trim().slice(0, 300) || 'no answer' }; }
 }
 
+// Runs `claude setup-token` in a real terminal (so its sign-in screen works) and picks the token out of what it prints,
+// so nobody has to copy it by hand. Returns '' if it can't (no terminal, cancelled): setup then asks to paste it.
+async function claudeSetupToken() {
+  const claude = process.env.ASKQ_CLAUDE || which('claude');
+  if (!claude || !process.stdin.isTTY || !which('script')) return '';
+  console.log(`\n  A Claude sign-in link will appear. Open it on any device (copy it, or scan the QR on a phone),`);
+  console.log(`  sign in, approve, and paste the code back here if it asks.\n`);
+  close();   // hand the keyboard to claude
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'askq-'));
+  const log = path.join(dir, 'out');
+  const argv = isMac ? ['-q', log, claude, 'setup-token'] : ['-q', '-e', '-c', `'${claude.replace(/'/g, `'\\''`)}' setup-token`, log];
+  const r = spawnSync('script', argv, { stdio: 'inherit' });
+  let text = ''; try { text = fs.readFileSync(log, 'utf8'); } catch {}
+  fs.rmSync(dir, { recursive: true, force: true });
+  const token = findToken(text);
+  if (!token && r.status !== 0) info('Claude sign-in did not finish.');
+  return token;
+}
 async function setupVoice() {
   if (!which('ffmpeg')) { bad(`ffmpeg is needed for voice notes. Install it (${isMac ? 'brew install ffmpeg' : 'sudo apt install ffmpeg'}) and run askq setup again.`); return false; }
   const py = which('python3');
@@ -143,22 +163,55 @@ async function linkChannel(channel) {
   } finally { if (wasRunning || svc.installed()) svc.control('start'); }
 }
 
-function tailscaleServe(port, httpsPort) {
+// Runs a command, shows its output, and turns any Tailscale link in it (e.g. "enable Serve/HTTPS on your tailnet") into
+// a QR you can scan with your phone. Newer Tailscale versions wait until you approve that link, so this waits too.
+function runShowingLinks(cmd, argv, timeout) {
+  return new Promise(resolve => {
+    const p = spawn(cmd, argv, { stdio: ['ignore', 'pipe', 'pipe'] });
+    let out = '', shown = false;
+    const timer = setTimeout(() => p.kill(), timeout);
+    const onData = async d => {
+      out += d; process.stdout.write(d);
+      const link = !shown && out.match(/https:\/\/login\.tailscale\.com\/\S+/);
+      if (link) {
+        shown = true;
+        const QR = (await import('qrcode')).default;
+        console.log(await QR.toString(link[0], { type: 'terminal', small: true }));
+        info(bold('Open that link (or scan the QR with your phone), sign in and approve. I\'ll wait here.'));
+      }
+    };
+    p.stdout.on('data', onData); p.stderr.on('data', onData);
+    p.on('close', status => { clearTimeout(timer); resolve({ status, stdout: out, stderr: out }); });
+    p.on('error', e => { clearTimeout(timer); resolve({ status: 1, stdout: '', stderr: e.message }); });
+  });
+}
+
+async function tailscaleServe(port, httpsPort) {
   const ts = tailscaleBin();
   if (!ts) return { ok: false, why: 'Tailscale is not installed.' };
   let st; try { st = JSON.parse(execFileSync(ts, ['status', '--json'], { encoding: 'utf8' })); } catch { return { ok: false, why: 'Tailscale is not running or not logged in. Run: sudo tailscale up' }; }
   if (st.BackendState !== 'Running') return { ok: false, why: `Tailscale is ${st.BackendState}. Run: sudo tailscale up` };
   const host = String(st.Self?.DNSName || '').replace(/\.$/, '');
-  const r = spawnSync(ts, ['serve', '--bg', `--https=${httpsPort}`, `http://127.0.0.1:${port}`], { encoding: 'utf8' });
+  const r = await runShowingLinks(ts, ['serve', '--bg', `--https=${httpsPort}`, `http://127.0.0.1:${port}`], 15 * 60_000);
   if (r.status !== 0) return { ok: false, why: (r.stderr || r.stdout).trim().slice(0, 400) + (/access denied|permission/i.test(r.stderr) ? `\nRun once: sudo tailscale set --operator=$USER  (then askq setup again)` : '')
     + (/https|certificate|cert/i.test(r.stderr + r.stdout) ? '\nYour tailnet needs HTTPS certificates turned on.' : '') };
   return { ok: true, url: `https://${host}${httpsPort === 443 ? '' : `:${httpsPort}`}/ask` };
 }
 
-async function printSiri(url) {
-  console.log(`\n${bold('Siri shortcut')} — follow docs/siri-shortcut.md (2 minutes). You need:`);
-  console.log(`  URL:    ${url || '(run askq setup to expose it through Tailscale)'}`);
-  console.log(`  Token:  run ${bold('askq token --show')} on this machine, or scan ${bold('askq token --qr')} with your iPhone camera.`);
+// Everything the Siri shortcut asks for when you add it, as QR codes: scan with the iPhone camera, tap, copy, paste.
+async function printSiri(url = loadConfig().url) {
+  const QR = (await import('qrcode')).default;
+  const qr = t => QR.toString(t, { type: 'terminal', small: true });
+  console.log(`\n${bold('Siri shortcut')}`);
+  info(`On your iPhone, add it from: ${SHORTCUT}`);
+  info('It asks for two things. Scan each QR with the iPhone camera, tap the text, Copy, and paste it in.');
+  console.log(`\n  ${bold('1. Token')}`);
+  console.log(await qr(getToken({ create: true })));
+  if (url) {
+    console.log(`  ${bold('2. URL')}  ${url}`);
+    console.log(await qr(url));
+  } else info(`${bold('2. URL')}  not ready yet: finish the Tailscale step (askq setup), then run askq siri.`);
+  info(`Then say "Hey Siri, Ask Q". Show this again any time with: ${bold('askq siri')}`);
 }
 
 // ---------- commands ----------
@@ -178,11 +231,14 @@ async function setup() {
   else {
     info(c.why);
     const how = await choose('How do you want to pay for Claude?', [
-      { label: 'My Claude subscription (Pro/Max)', hint: 'run `claude setup-token` in another terminal and paste the token', value: 'sub' },
+      { label: 'My Claude subscription (Pro/Max)', hint: 'you sign in to Claude in your browser', value: 'sub' },
       { label: 'An API key', hint: 'from console.anthropic.com, pay per use', value: 'api' },
     ]);
     const key = how === 'sub' ? 'CLAUDE_CODE_OAUTH_TOKEN' : 'ANTHROPIC_API_KEY';
-    setEnv(key, await askSecret(how === 'sub' ? 'Token from `claude setup-token` (hidden): ' : 'Anthropic API key (hidden): '));
+    let secret = how === 'sub' ? await claudeSetupToken() : '';
+    if (secret) ok('Got your Claude token.');
+    else secret = await askSecret(how === 'sub' ? 'Token from `claude setup-token` (hidden): ' : 'Anthropic API key (hidden): ');
+    setEnv(key, secret);
     c = claudeWorks();
     if (c.ok) ok('Claude Code works.');
     else { setEnv(key, ''); bad(`Claude still does not answer: ${c.why}\n  The key was not saved. Fix it and run askq setup again (or askq doctor).`); }
@@ -234,7 +290,7 @@ async function setup() {
   info('signed in with Google/Apple/Microsoft/GitHub — this machine must use the SAME account. (Guide: docs/getting-started.md)');
   let url = null;
   const port = parseInt(await askText('HTTPS port on your tailnet', '443'), 10) || 443;
-  let t = tailscaleServe(loadConfig().port, port);
+  let t = await tailscaleServe(loadConfig().port, port);
   for (let tries = 0; !t.ok && tries < 3; tries++) {
     bad(t.why);
     if (!tailscaleBin()) {
@@ -245,14 +301,17 @@ async function setup() {
       spawnSync('sudo', [tailscaleBin(), 'up'], { stdio: 'inherit' });
       spawnSync('sudo', [tailscaleBin(), 'set', `--operator=${os.userInfo().username}`], { stdio: 'inherit' });
     } else if (/HTTPS certificates/.test(t.why)) {
-      await question('Enable HTTPS at https://login.tailscale.com/admin/dns ("HTTPS Certificates" → Enable HTTPS), then press Enter… ');
+      const QR = (await import('qrcode')).default;
+      console.log(await QR.toString('https://login.tailscale.com/admin/dns', { type: 'terminal', small: true }));
+      info('Open https://login.tailscale.com/admin/dns (or scan the QR with your phone) → "HTTPS Certificates" → Enable HTTPS.');
+      await question('Then press Enter… ');
     } else if (/operator/.test(t.why) && !isMac) {
       if (!await askYes('Allow Ask Q to configure Tailscale without sudo (tailscale set --operator)?')) break;
       spawnSync('sudo', [tailscaleBin(), 'set', `--operator=${os.userInfo().username}`], { stdio: 'inherit' });
     } else if (!await askYes('Try again?')) break;
-    t = tailscaleServe(loadConfig().port, port);
+    t = await tailscaleServe(loadConfig().port, port);
   }
-  if (t.ok) { url = t.url; ok(`Reachable only from your Tailscale devices: ${url}`); }
+  if (t.ok) { url = t.url; ok(`Reachable only from your Tailscale devices: ${url}`); const c3 = loadConfig(); c3.url = url; saveConfig(c3); }
   else info('When Tailscale is ready, run askq setup again (your answers are kept).');
   close();
   await printSiri(url);
@@ -337,6 +396,7 @@ const HELP = `${bold('askq')} — your own assistant: Siri, WhatsApp or Telegram
   askq logs [lines]           recent logs
   askq ask "question"         talk to it from the terminal
   askq link whatsapp|telegram [your-number]   link a chat channel (QR, or a code if you give your number)
+  askq siri                   QR codes with what the Siri shortcut asks for (token and URL)
   askq token [--show|--qr|--rotate]           the key your Siri shortcut uses
 
   askq tool new <name> ["what it does"]       create a tool (the assistant does this for you when you ask)
@@ -372,6 +432,7 @@ try {
     }
     case 'link': await linkChannel(args[0]); break;
     case 'token': await token(); break;
+    case 'siri': await printSiri(); break;
     case 'tool': await tool(); break;
     case 'tools': if (args[0] === 'sync') { const { sync } = await import('../src/tools.js'); await sync(); } else throw new Error('Use: askq tools sync'); break;
     case 'secret': await secret(); break;

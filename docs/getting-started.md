@@ -87,17 +87,16 @@ to accept. Then:
 2. **Setup questions.** `askq setup` starts:
    - **Name, language, timezone** — type them or press Enter.
    - **Claude** — if it isn't signed in yet:
-     - With a subscription: open a **second** SSH/Terminal window on the same machine and run `claude setup-token`.
-       It shows a link: open it, sign in to Claude, approve, and copy the token it gives you (starts with `sk-ant-`).
-       Go back to the first window and paste it (it stays hidden).
+     - With a subscription: choose option 1. It shows a sign-in link: open it (on your computer or phone), sign in to
+       Claude and approve. If the page gives you a code, paste it back in the terminal. Setup picks up the token by itself.
      - With an API key: paste the key from console.anthropic.com.
    - **Chat channel** — see Step 5.
    - **Voice notes** — say yes if you want to send voice messages in the chat.
    - **Background service** — press Enter.
-   - **Tailscale HTTPS** — the first time you'll probably see a message about HTTPS certificates. Open
-     **https://login.tailscale.com/admin/dns**, scroll to **HTTPS Certificates**, click **Enable HTTPS**, then run
-     `askq setup` again.
-3. At the end it prints **your URL** (like `https://ask-q-server.tail1234.ts.net/ask`). Keep that window open for Step 6.
+   - **Tailscale HTTPS** — the first time, Tailscale asks you to turn on HTTPS for your private network. Setup shows a
+     link and a QR: open it (or scan it with your phone), sign in and approve. Setup waits and continues by itself.
+3. At the end it shows **two QR codes**: your token and your URL. Keep that window open for Step 6
+   (or show them again later with `askq siri`).
 
 ## Step 5 — WhatsApp or Telegram
 
@@ -125,9 +124,10 @@ any phone, link it the same way, and save the number in your contacts as "Ask Q"
 1. On your iPhone, make sure **Tailscale is connected** (Step 3).
 2. Open **[the Ask Q shortcut](https://www.icloud.com/shortcuts/e1315a2a57eb4d1ea67a3552f287e751)** on the iPhone → **Add Shortcut**.
 3. It asks two questions:
-   - **URL** — type the URL from Step 4 (or send it to yourself in the chat and copy it).
-   - **Token** — on the machine run `askq token --qr`, point the iPhone camera at the QR, tap the text that appears
-     and copy it. Paste it here.
+   - **Token** — point the iPhone camera at the first QR from Step 4, tap the text that appears, **Copy**, and paste it.
+   - **URL** — the same with the second QR.
+
+   (No QR on screen? Run `askq siri` on the machine.)
 4. Say **"Hey Siri, Ask Q"** → after the beep: *"What's the weather tomorrow?"*
 
 If it doesn't answer, run `askq doctor` on the machine: it tells you what's missing.

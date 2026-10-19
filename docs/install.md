@@ -46,7 +46,7 @@ available.
 
 During setup, choose:
 
-- **Your Claude subscription (Pro/Max)** — run `claude setup-token` in another terminal and paste the token. Fixed
+- **Your Claude subscription (Pro/Max)** — setup opens the Claude sign-in (`claude setup-token`) and keeps the token for you. Fixed
   monthly price; usage counts toward your plan's limits.
 - **An API key** from console.anthropic.com — pay per use.
 
