@@ -280,7 +280,10 @@ async function setup() {
   const svc = await import('../src/service.js');
   if (await askYes('Run Ask Q in the background and start it at boot?')) try {
     const r = svc.install();
-    ok(`Ask Q runs in the background (${r.kind}) and starts at boot.`);
+    let up = false;
+    for (let i = 0; i < 20 && !(up = await health()); i++) await new Promise(res => setTimeout(res, 500));
+    if (up) ok(`Ask Q runs in the background (${r.kind}) and starts at boot.`);
+    else bad(`The background service was installed but is not answering. Try: askq start, then askq logs`);
     if (r.kind === 'systemd' && !r.linger) info(`To keep it running when you are logged out: sudo loginctl enable-linger ${os.userInfo().username}`);
   } catch (e) { bad(e.message); }
 

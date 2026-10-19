@@ -22,6 +22,21 @@ function envPath() {
 const run = (cmd, args) => spawnSync(cmd, args, { encoding: 'utf8' });
 export const systemdAvailable = () => !isMac && run('systemctl', ['--user', 'show-environment']).status === 0;
 
+// launchctl bootout returns before the old job is gone, and an immediate bootstrap then fails ("Bootstrap failed: 5:
+// Input/output error"), leaving Ask Q stopped. Wait for the old job to disappear and retry a few times.
+const sleep = ms => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+function bootstrap() {
+  const target = `gui/${process.getuid()}/${LABEL}`;
+  for (let i = 0; i < 20 && run('launchctl', ['print', target]).status === 0; i++) sleep(250);
+  let r;
+  for (let i = 0; i < 5; i++) {
+    r = run('launchctl', ['bootstrap', `gui/${process.getuid()}`, PLIST]);
+    if (r.status === 0 || run('launchctl', ['print', target]).status === 0) return { ...r, status: 0 };
+    sleep(1000);
+  }
+  return r;
+}
+
 export function install() {
   const cmd = [process.execPath, path.join(APP, 'src', 'daemon.js')];
   if (isMac) {
@@ -45,7 +60,7 @@ export function install() {
 </dict></plist>
 `);
     run('launchctl', ['bootout', `gui/${process.getuid()}/${LABEL}`]);
-    const r = run('launchctl', ['bootstrap', `gui/${process.getuid()}`, PLIST]);
+    const r = bootstrap();
     if (r.status !== 0) throw new Error(`launchctl: ${r.stderr.trim()}`);
     return { kind: 'launchd', file: PLIST };
   }
@@ -81,7 +96,7 @@ export function control(action) {
   if (isMac) {
     const target = `gui/${process.getuid()}/${LABEL}`;
     if (action === 'stop') return run('launchctl', ['bootout', target]);
-    if (action === 'start') return run('launchctl', ['bootstrap', `gui/${process.getuid()}`, PLIST]);
+    if (action === 'start') return bootstrap();
     if (action === 'restart') return run('launchctl', ['kickstart', '-k', target]);
     return run('launchctl', ['print', target]);
   }
