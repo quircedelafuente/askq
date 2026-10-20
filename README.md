@@ -46,7 +46,7 @@ curl -fsSL https://raw.githubusercontent.com/quircedelafuente/askq/main/install.
 irm https://raw.githubusercontent.com/quircedelafuente/askq/main/install.ps1 | iex
 ```
 
-The installer adds what's missing (Node.js, Claude Code, Tailscale) and walks you through setup. Then:
+The installer adds what's missing (git, Node.js, Claude Code) and walks you through setup, including Tailscale if you want Siri. Then:
 
 1. **Siri** → add [the Ask Q shortcut](https://www.icloud.com/shortcuts/bb7e05a8316a4b3ab19bba51307ba3f8) on your iPhone and paste your URL and token ([details](docs/siri-shortcut.md))
 2. **WhatsApp or Telegram** → link it during setup, or later with `askq link whatsapp` / `askq link telegram`
