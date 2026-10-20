@@ -398,19 +398,17 @@ async function setupTailscale(cfg, save) {
 }
 function later() { info(`When Tailscale is ready, run ${bold('askq setup')} again (your answers are kept).`); return null; }
 
-// Everything the Siri shortcut asks for when you add it, as QR codes: scan with the iPhone camera, tap, copy, paste.
+// The Siri shortcut: a QR to add it from the iPhone camera, then the two things it asks for, as text to copy.
 async function printSiri(url = loadConfig().url) {
   const QR = (await import('qrcode')).default;
-  const qr = t => QR.toString(t, { type: 'terminal', small: true });
   console.log(`\n${bold('Siri shortcut')}`);
-  info(`On your iPhone, add it from: ${SHORTCUT}`);
-  info('It asks for two things. Scan each QR with the iPhone camera, tap the text, Copy, and paste it in.');
-  console.log(`\n  ${bold('1. Token')}`);
-  console.log(await qr(getToken({ create: true })));
-  if (url) {
-    console.log(`  ${bold('2. URL')}  ${url}`);
-    console.log(await qr(url));
-  } else info(`${bold('2. URL')}  not ready yet: finish the Tailscale step (askq setup), then run askq siri.`);
+  info('Scan this QR with the iPhone camera to add the shortcut:');
+  console.log(await QR.toString(SHORTCUT, { type: 'terminal', small: true }));
+  info(`Or open: ${SHORTCUT}`);
+  info('When you add it, it asks for two things. Copy them from here:');
+  console.log(`\n  ${bold('1. Token')}  ${getToken({ create: true })}`);
+  if (url) console.log(`  ${bold('2. URL')}    ${url}\n`);
+  else info(`${bold('2. URL')}  not ready yet: finish the Tailscale step (askq setup), then run askq siri.`);
   info(`Then say "Hey Siri, Ask Q". Show this again any time with: ${bold('askq siri')}`);
 }
 
@@ -702,7 +700,7 @@ const HELP = `${bold('askq')} — your own assistant: Siri, WhatsApp or Telegram
   askq link whatsapp|telegram [your-number]   link a chat channel (QR, or a code if you give your number)
   askq ai                     choose the AI that does the work (Claude Code, Codex, Cursor, Antigravity)
   askq update [--check]       install the latest version (it also checks by itself every 12 hours)
-  askq siri                   QR codes with what the Siri shortcut asks for (token and URL)
+  askq siri                   QR to add the Siri shortcut, plus the token and URL it asks for
   askq token [--show|--qr|--rotate]           the key your Siri shortcut uses
 
   askq tool new <name> ["what it does"]       create a tool (the assistant does this for you when you ask)

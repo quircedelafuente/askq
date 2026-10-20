@@ -5,9 +5,9 @@ the shortcut listens again, so you can just say "yes".
 
 You need two things from your Ask Q machine:
 
-- **Token** and **URL** — `askq setup` shows both as QR codes at the end; show them again any time with `askq siri`.
-  Scan each with the iPhone camera, tap the text, Copy. (Or print them: `askq token --show`, and the URL is like
-  `https://my-server.tail1234.ts.net/ask`.)
+- **Token** and **URL** — `askq setup` prints both at the end, under the QR that adds the shortcut; show them again
+  any time with `askq siri`. (The URL is like `https://my-server.tail1234.ts.net/ask`; `askq token --qr` still gives
+  the token as a QR if you prefer to scan it.)
 
 Your iPhone must have the **Tailscale** app installed and connected to the same account.
 

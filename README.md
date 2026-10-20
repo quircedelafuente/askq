@@ -70,7 +70,7 @@ askq doctor                   check that everything works
 askq ai                       choose the AI (Claude Code, Codex, Cursor, Antigravity)
 askq ask "question"           talk to it from the terminal
 askq link whatsapp|telegram   link a chat channel
-askq siri                     QR codes with what the Siri shortcut asks for
+askq siri                     QR to add the Siri shortcut, plus its token and URL
 askq tool new|add|list|test|remove   create, install (from a GitHub link) or manage tools
 askq login <tool>             sign in to a tool's website from your phone
 askq secret set <tool> <KEY>  store a password or API key for a tool
