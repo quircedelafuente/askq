@@ -1,5 +1,7 @@
 # Ask Q
 
+[![Tests](https://github.com/quircedelafuente/askq/actions/workflows/test.yml/badge.svg)](https://github.com/quircedelafuente/askq/actions/workflows/test.yml) [![Release](https://img.shields.io/github/v/release/quircedelafuente/askq)](https://github.com/quircedelafuente/askq/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 **Your own AI assistant that gets real things done.** Say *"Hey Siri, Ask Q: get me a bus ticket to Madrid on Thursday at 9"* and the ticket lands in your WhatsApp a minute later.
 
 Ask Q runs [Claude Code](https://claude.com/claude-code) (or [Codex, Cursor or Antigravity](docs/engines.md)) on **your** machine (a free cloud server or your own computer) and gives it tools to act for you: book, buy, check, remind, send. You talk to it from **Siri**, **WhatsApp** or **Telegram**.

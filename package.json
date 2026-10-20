@@ -1,6 +1,6 @@
 {
   "name": "askq",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Your own AI assistant that gets real things done. Talk to it from Siri, WhatsApp or Telegram; it runs Claude Code on your own machine and uses tools you create by just asking.",
   "license": "MIT",
   "author": "Quirce de la Fuente",
