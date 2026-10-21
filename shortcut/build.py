@@ -36,22 +36,20 @@ def plain(text):
 def action(ident, **params):
     return {'WFWorkflowActionIdentifier': f'is.workflow.actions.{ident}', 'WFWorkflowActionParameters': params}
 
-TOKEN, HELLO, ASK, FETCH = uid(), uid(), uid(), uid()
+HELLO, ASK, FETCH = uid(), uid(), uid()
 LOOP = uid()
 answer = {'VariableName': 'Answer', 'Type': 'Variable'}
 
 actions = [
-    # 0: the token (filled in by the import question)
-    action('gettext', UUID=TOKEN, WFTextActionText=''),
     action('gettext', UUID=HELLO, WFTextActionText="I'm listening"),
     action('setvariable', WFVariableName='Answer', WFInput=attachment(out(HELLO, 'Text'))),
     action('repeat.count', GroupingIdentifier=LOOP, WFControlFlowMode=0, WFRepeatCount=20.0),
     # Siri says the last answer and listens
     action('ask', UUID=ASK, WFAskActionPrompt=tokens('￼', [answer])),
-    # 5: the URL (filled in by the import question)
+    # 4: the URL and the Authorization header (both filled in by the import questions: the header is just the token)
     action('downloadurl', UUID=FETCH, WFURL='', WFHTTPMethod='POST', ShowHeaders=True, WFHTTPBodyType='JSON',
            WFHTTPHeaders={'Value': {'WFDictionaryFieldValueItems': [
-               {'WFItemType': 0, 'WFKey': plain('Authorization'), 'WFValue': tokens('Bearer ￼', [out(TOKEN, 'Text')])}]},
+               {'WFItemType': 0, 'WFKey': plain('Authorization'), 'WFValue': plain('')}]},
                'WFSerializationType': 'WFDictionaryFieldValue'},
            WFJSONValues={'Value': {'WFDictionaryFieldValueItems': [
                {'WFItemType': 0, 'WFKey': plain('text'), 'WFValue': tokens('￼', [out(ASK, 'Provided Input')])}]},
@@ -63,9 +61,12 @@ actions = [
 shortcut = {
     'WFWorkflowActions': actions,
     'WFWorkflowImportQuestions': [
-        {'ActionIndex': 0, 'Category': 'Parameter', 'ParameterKey': 'WFTextActionText', 'DefaultValue': '',
-         'Text': 'Your Ask Q token. On your Ask Q machine run: askq token --qr (scan it) or askq token --show'},
-        {'ActionIndex': 5, 'Category': 'Parameter', 'ParameterKey': 'WFURL', 'DefaultValue': 'https://',
+        {'ActionIndex': 4, 'Category': 'Parameter', 'ParameterKey': 'WFHTTPHeaders',
+         'DefaultValue': {'Value': {'WFDictionaryFieldValueItems': [
+             {'WFItemType': 0, 'WFKey': plain('Authorization'), 'WFValue': plain('')}]},
+             'WFSerializationType': 'WFDictionaryFieldValue'},
+         'Text': 'Paste your Ask Q token as the Authorization value (just the token). Shown at the end of askq setup, or run: askq siri'},
+        {'ActionIndex': 4, 'Category': 'Parameter', 'ParameterKey': 'WFURL', 'DefaultValue': 'https://',
          'Text': 'Your Ask Q URL, shown at the end of askq setup (like https://my-server.tail1234.ts.net/ask)'},
     ],
     'WFWorkflowClientVersion': '4610',

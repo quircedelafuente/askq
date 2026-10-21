@@ -14,7 +14,7 @@ Your iPhone must have the **Tailscale** app installed and connected to the same 
 ## Install it (1 tap)
 
 1. On your iPhone, open **[the Ask Q shortcut](https://www.icloud.com/shortcuts/bb7e05a8316a4b3ab19bba51307ba3f8)** → **Add Shortcut**.
-2. It asks two questions: paste your **token** and your **URL**.
+2. It asks two questions: paste your **token** as the `Authorization` value (just the token) and your **URL**.
 3. Say **"Hey Siri, Ask Q"**. Siri says "I'm listening": ask your question.
 
 It's a conversation: Siri reads each answer and listens again, so you can follow up or just say "yes" when Ask Q asks
@@ -34,7 +34,7 @@ Open **Shortcuts** → **+** (new shortcut) → name it **Ask Q** (that's what y
 4. **Get Contents of URL**
    - URL: your Ask Q URL
    - Method: **POST**
-   - Headers: add `Authorization` with value `Bearer YOUR-TOKEN` (the word Bearer, a space, then the token)
+   - Headers: add `Authorization` with your token as the value (just the token; `Bearer <token>` also works)
    - Request Body: **JSON** → add field `text` (Text) = *Dictated Text*
 5. **Speak Text** → *Contents of URL*. (Pick a voice in your language under "Show More".)
 6. **If** → *Contents of URL* **does not contain** `?` → inside it, **Stop This Shortcut**. (End If.)
@@ -59,6 +59,6 @@ That's it. Say **"Hey Siri, Ask Q"**, wait for the beep, and speak.
 - **Action Button / Back Tap.** Assign the shortcut to the iPhone Action Button or to Settings → Accessibility → Touch →
   Back Tap for one-tap access.
 - **Mac, iPad, Apple Watch.** The same shortcut syncs through iCloud and works there too.
-- **"Something went wrong" / 401.** The token in the header is wrong: it must be `Bearer ` + token, no extra spaces.
+- **"Something went wrong" / 401.** The token in the header is wrong: it must be exactly your token, no extra spaces.
   Check with `askq logs`.
 - **The same phrase keeps coming back.** The Dictate Text action is outside the Repeat. Move it inside.

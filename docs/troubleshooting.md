@@ -8,7 +8,7 @@ Start with `askq doctor` — it checks every piece and tells you the command tha
 |---|---|
 | "Something went wrong" right away | Is Tailscale connected on the iPhone? Is the URL right? |
 | Nothing happens, and `askq logs` shows no `SIRI` line | The question never reached the machine. If you edited your Tailscale **access controls** (https://login.tailscale.com/admin/acls), allow your phone to reach this machine on port 443. Test from another device on your tailnet: `curl https://<machine>.<tailnet>.ts.net/health` should print `ok`. |
-| 401 / "unauthorized" | The header must be `Authorization: Bearer <token>`. Re-copy it with `askq token --qr`. |
+| 401 / "unauthorized" | The `Authorization` header must be your token (just the token). Re-copy it with `askq siri`. |
 | Siri stops before the answer | Tasks over ~30 s: say "okay" to hear the result. |
 | The same phrase repeats | Move **Dictate Text** inside the **Repeat**. |
 | Spanish (or other) read with an English accent | Choose a voice in your language in **Speak Text**. |
