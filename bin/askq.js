@@ -10,7 +10,7 @@ import { ENGINES, engineName } from '../src/engines.js';
 import { P, APP, HOME, loadConfig, saveConfig, ensureDirs, getToken, rotateToken, setEnv, loadEnv, claudeEnv, readJSON, writePrivate } from '../src/config.js';
 
 const [cmd, ...args] = process.argv.slice(2);
-const SHORTCUT = 'https://www.icloud.com/shortcuts/bb7e05a8316a4b3ab19bba51307ba3f8';
+const SHORTCUT = 'https://www.icloud.com/shortcuts/db666a821e9447fa9cdaff82e3a938bc';
 const isMac = process.platform === 'darwin';
 const bold = s => `\x1b[1m${s}\x1b[0m`, dim = s => `\x1b[2m${s}\x1b[0m`, green = s => `\x1b[32m${s}\x1b[0m`, red = s => `\x1b[31m${s}\x1b[0m`;
 const ok = s => console.log(`${green('✓')} ${s}`), bad = s => console.log(`${red('✗')} ${s}`), info = s => console.log(`  ${s}`);
