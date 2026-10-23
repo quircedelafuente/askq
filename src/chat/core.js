@@ -1,9 +1,9 @@
 // What every chat channel does with a message: voice notes are transcribed on this machine, photos are saved so the
-// assistant can look at them, "new conversation" starts over, and slow answers get an "on it" first.
+// assistant can look at them, "new conversation" (or 2 hours of silence) starts over, and slow answers get an "on it" first.
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { P, APP, logger } from '../config.js';
+import { P, APP, logger, loadConfig } from '../config.js';
 import { ask, resetSession } from '../agent.js';
 import { isNewConversation } from '../confirm.js';
 
@@ -42,7 +42,7 @@ export async function createChat(cfg) {
     log('IN', name, JSON.stringify(text.slice(0, 200)));
     if (isNewConversation(text)) { resetSession(name); return reply('Okay, starting over.'); }
     const slow = setTimeout(() => reply('On it…'), SLOW_S * 1000);
-    const job = ask(text, { channel: name, onEarly: t => { clearTimeout(slow); reply(t); } });
+    const job = ask(text, { channel: name, expires: loadConfig().chatSessionMinutes, onEarly: t => { clearTimeout(slow); reply(t); } });
     const answer = await job;
     clearTimeout(slow);
     if (job.turn.sent) return log('FINAL-SKIPPED', 'already sent');   // the result is already in the chat

@@ -46,6 +46,7 @@ export const DEFAULTS = {
   telegram: { chatId: null },   // the bot token lives in `env` as TELEGRAM_BOT_TOKEN
   voiceNotes: false,        // transcribe voice notes locally (faster-whisper)
   sessionMinutes: 15,       // Siri: after this long, a new conversation starts
+  chatSessionMinutes: 120,  // WhatsApp/Telegram: after this long without messages, a new conversation starts (0 = never)
   guard: {
     exempt: ['mcp__askq-phone__send_to_phone', 'mcp__askq-phone__tell_user_now', 'mcp__askq-phone__remind_me', 'mcp__askq-phone__list_reminders', 'mcp__askq-phone__cancel_reminder'],
     require: [],            // extra tool names (or prefixes ending in *) that always need your "yes"

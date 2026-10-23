@@ -5,6 +5,10 @@ things** there — tickets, PDFs, screenshots, reminders, and a note every time 
 
 Choose it in `askq setup`. Change it any time by running setup again.
 
+**Start over.** Write "new conversation". Ask Q also starts a new conversation by itself after 2 hours without
+messages, like Siri does after 15 minutes. Change it with `"chatSessionMinutes"` in `~/.askq/config.json`
+(`0` = never forget).
+
 ## WhatsApp
 
 Ask Q connects as a *linked device* (like WhatsApp Web) using [Baileys](https://github.com/WhiskeySockets/Baileys).
